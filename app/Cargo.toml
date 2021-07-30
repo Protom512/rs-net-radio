@@ -1,0 +1,24 @@
+[package]
+name = "rs-net-radio"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+record-lib= {path="../record-lib"}
+#reqwest = { version = "0.11.4", features = ["blocking","json"] }
+#scraper = "0.12.0"
+#log = "0.4.14"
+env_logger = "0.9.0"
+#chrono = "0.4.19"
+tokio= { version = "1.14.0", features = ["full"] }
+tokio-cron-scheduler = "0.2.1"
+chrono = "0.4.19"
+log = "0.4.14"
+#clap = "2.33.3"
+#m3u8-rs = "2.0.0"
+#nom = "7.0.0"
+#tempfile = "3.2.0"
+#http = "0.2.4"
+#serde-xml-rs = "0.5.1"
+#xml-rs = "0.8.4"
+
