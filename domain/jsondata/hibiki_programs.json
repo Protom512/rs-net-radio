@@ -1,0 +1,89 @@
+{
+  "access_id": "guruguru",
+  "id": 290,
+  "name": "D4DJ ぐるぐるＲＡＤＩＯＴＩＭＥ！！∼陽葉学園放送室∼",
+  "name_kana": "",
+  "day_of_week": 4,
+  "description": "DJをテーマにしたメディアミックスコンテンツ『D4DJ』は、「繋ぐ」をテーマに、\r\nアニメ・ゲーム・声優によるライブなどをお届けしています。\r\nオリジナル曲や、名曲のリミックスカバーをはじめ、多様な音楽を発信中。\r\nそんなD4DJユニットの中から陽葉学園に在学する\r\n「Happy Around!」「Peaky P-key」「Photon Maiden」が登場！\r\nＴＯＫＹＯ ＦＭにて毎週水曜日21時30分より放送中の\r\n「ぐるぐるＲＡＤＩＯＴＩＭＥ！！∼陽葉学園放送室∼」がここでも聴ける!\r\n",
+  "pc_image_url": "https://hibikiradiovms.blob.core.windows.net/image/uploads/program_banner/image1/365/6d79b4d9-2fe3-4e27-af5b-7278c2ab9742.jpg",
+  "pc_image_info": {
+    "width": 1000,
+    "height": 400
+  },
+  "sp_image_url": "https://hibikiradiovms.blob.core.windows.net/image/uploads/program_banner/image2/365/35e4afbc-f967-4b6f-a60c-ea8a77e54f34.jpg",
+  "sp_image_info": {
+    "width": 640,
+    "height": 360
+  },
+  "onair_information": "2021年4月8日(木)配信開始\r\n以降毎週木曜日23時頃配信！！",
+  "message_form_url": "https://vcms-api.hibiki-radio.jp/inquiries/new?program_id=290",
+  "email": "d4dj@tfm.co.jp",
+  "new_program_flg": false,
+  "pickup_program_flg": false,
+  "original_program_flg": false,
+  "copyright": "©bushiroad All Rights Reserved. © Donuts Co. Ltd. All rights reserved.",
+  "priority": 470,
+  "meta_title": "",
+  "meta_keyword": "",
+  "meta_description": "",
+  "hash_tag": "#ぐるらじ #響ラジオ",
+  "share_text": "響ラジオステーションで「D4DJ ぐるぐるＲＡＤＩＯＴＩＭＥ！！∼陽葉学園放送室∼」を楽しもう!",
+  "share_url": "http://hibiki-radio.jp/description/guruguru/detail#share",
+  "cast": "",
+  "publish_start_at": "2021/04/05 17:00:00",
+  "publish_end_at": null,
+  "updated_at": "2021/11/12 14:02:15",
+  "latest_episode_id": 11862,
+  "latest_episode_name": "第32回",
+  "episode_updated_at": "2021/11/11 23:00:00",
+  "update_flg": true,
+  "episode": {
+    "id": 11862,
+    "program_id": 290,
+    "program_name": "D4DJ ぐるぐるＲＡＤＩＯＴＩＭＥ！！∼陽葉学園放送室∼",
+    "name": "第32回",
+    "media_type": 1,
+    "video": {
+      "id": 14894,
+      "duration": 1472.5,
+      "live_flg": false,
+      "delivery_start_at": null,
+      "delivery_end_at": null,
+      "dvr_flg": false,
+      "replay_flg": false,
+      "media_type": 1
+    },
+    "additional_video": null,
+    "html_description": "",
+    "link_url": "",
+    "updated_at": "2021/11/11 23:00:03",
+    "episode_parts": [],
+    "chapters": [
+      {
+        "id": 0,
+        "start_time": 0,
+        "pc_image_url": "https://hibikiradiovms.blob.core.windows.net/image/uploads/program_banner/image2/365/35e4afbc-f967-4b6f-a60c-ea8a77e54f34.jpg",
+        "pc_image_info": {
+          "width": 640,
+          "height": 360
+        },
+        "sp_image_url": "https://hibikiradiovms.blob.core.windows.net/image/uploads/program_banner/image2/365/35e4afbc-f967-4b6f-a60c-ea8a77e54f34.jpg",
+        "sp_image_info": {
+          "width": 640,
+          "height": 360
+        },
+        "name": "チャプター機能について",
+        "description": "『チャプター』マークのある番組に関しまして、会員登録を行いログインをして頂きますと、コーナーの頭出し等が可能なチャプター機能がご利用になれます。\nぜひ会員登録をしてチャプター機能をご利用ください。\n（こちらの文章は画面をタップすると消せます。）"
+      }
+    ]
+  },
+  "chapter_flg": false,
+  "additional_video_flg": false,
+  "segment_count": 0,
+  "program_information_count": 0,
+  "product_information_count": 0,
+  "user_favorite_flg": false,
+  "program_links": [],
+  "casts": [],
+  "segments": []
+}

@@ -2,7 +2,7 @@ use chrono::Timelike;
 use chrono::{Datelike, Duration, Local, Utc};
 use env_logger::fmt::Color;
 use env_logger::Builder;
-//use log::LevelFilter;
+
 use log::{error, info, Level};
 use std::io::Write;
 mod lib;
@@ -37,8 +37,16 @@ async fn main() {
     let mut sched = JobScheduler::new();
     let current_time = Local::now();
     let init_schedule = "00 00 5 * * * *";
+    let onsen_job = Job::new(init_schedule, move |_uuid, _l| {
+        let json: Vec<OnsenProgram> = OnsenProgram::init();
+        for i in &json {
+            info!("{}", i.title);
+            i.record();
+        }
+    })
+    .unwrap();
+    sched.add(onsen_job).unwrap();
 
-    // let mut record_sched = JobScheduler::new();
     let job = Job::new(init_schedule, move |_uuid, _l| {
         let json: Vec<OnsenProgram> = OnsenProgram::init();
         for i in &json {

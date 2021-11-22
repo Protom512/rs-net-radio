@@ -48,12 +48,14 @@ impl OnsenProgram {
     pub fn record(&self) {
         let archive_path = match env::var("RS_NET_ARCHIVE_PATH") {
             Ok(n) => {
+                debug!("{}", archive_path);
                 let path = format!("{}/onsen", n);
+
                 if !Path::new(&path).is_dir() {
                     match fs::create_dir(format!("{}/onsen", n)) {
                         Ok(m) => debug!("{:?}", m),
                         Err(e) => {
-                            error!("{}", e);
+                            error!("error creating directory {}: {}", &path, e);
                             panic!("{}", e);
                         }
                     };
