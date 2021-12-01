@@ -1,3 +1,5 @@
+use fs_extra;
+use fs_extra::file::CopyOptions;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -65,7 +67,7 @@ impl OnsenProgram {
         };
         let tmpdir = match temp_dir().to_str() {
             Some(m) => {
-                info!("save path: {}", m);
+                info!("working path: {}", m);
                 m.to_string()
             }
             None => {
@@ -103,10 +105,18 @@ impl OnsenProgram {
                         error!("result:{:?}", output);
                     }
                     //TODO change /tmp/ to archive path
-                    match std::fs::rename(&output_path, format!("{}/{}", archive_path, &file_name))
-                    {
+                    //
+                    let options = CopyOptions::new();
+                    match fs_extra::file::move_file(
+                        &output_path,
+                        format!("{}/{}", archive_path, &file_name),
+                        &options,
+                    ) {
                         Ok(n) => n,
-                        Err(e) => error!("{:?}", e),
+                        Err(e) => {
+                            error!("{:?}", e);
+                            0
+                        }
                     };
                 }
                 None => error!(

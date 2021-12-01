@@ -1,6 +1,8 @@
 use chrono::{Date, DateTime, Duration, Local};
-
+use fs_extra;
+use fs_extra::file::CopyOptions;
 use log::{debug, error, info};
+use std::env::temp_dir;
 
 use std::fmt::Debug;
 use std::path::Path;
@@ -21,14 +23,10 @@ impl Ag {
     ///
     pub fn record(self) -> Result<ExitStatus, std::io::Error> {
         let start = self.start_datetime + Duration::seconds(-15);
-        let file_name = format!(
-            "{}_{}.mp4",
-            self.start_datetime.format("%Y%m%d_%H%M%S"),
-            self.title
-        );
-        let output_path = match env::var("RS_NET_ARCHIVE_PATH") {
+        let archive_path = match env::var("RS_NET_ARCHIVE_PATH") {
             Ok(n) => {
                 let path = format!("{}/ag", n);
+                debug!("{:#?}", &path);
                 if !Path::new(&path).is_dir() {
                     match fs::create_dir(format!("{}/ag", n)) {
                         Ok(m) => debug!("{:?}", m),
@@ -42,11 +40,25 @@ impl Ag {
             }
             Err(e) => panic!("$RS_NET_ARCHIVE_PATH  is not set: {}", e),
         };
-        let path_string = format!("{}/{}", output_path, file_name);
-        debug!("{}", path_string);
+        let tmpdir = match temp_dir().to_str() {
+            Some(m) => {
+                info!("working path: {}", m);
+                m.to_string()
+            }
+            None => {
+                panic!("cannot find tmpdir")
+            }
+        };
+
+        let file_name = format!(
+            "{}_{}.mp4",
+            self.start_datetime.format("%Y%m%d_%H%M%S"),
+            self.title
+        );
+        let working_path = format!("{}/{}", &tmpdir, &file_name);
         info!("Title: {}", self.title);
         info!("StartTime: {}", self.start_datetime);
-        let path = Path::new(&path_string);
+        let path = Path::new(&working_path);
         path.exists();
         let arg = self.end_datetime - start;
         info!("Duration: {}", arg);
@@ -72,6 +84,19 @@ impl Ag {
         return match res {
             Ok(m) => {
                 info!("ExitStatus:{}", m);
+                let options = CopyOptions::new();
+                match fs_extra::file::move_file(
+                    &working_path,
+                    format!("{}/{}", archive_path, &file_name),
+                    &options,
+                ) {
+                    Ok(n) => n,
+                    Err(e) => {
+                        error!("{:?}", e);
+                        0
+                    }
+                };
+
                 Ok(m)
             }
             Err(e) => {
