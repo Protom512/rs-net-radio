@@ -1,7 +1,10 @@
-on: [push]
+on:
+  push:
+    branches:
+      - master
+      - develop
 
 name: Code Coverage
-
 
 jobs:
   check:
@@ -20,8 +23,8 @@ jobs:
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: '0.15.0'
-          args: '-- --test-threads 1'
+          version: "0.15.0"
+          args: "-- --test-threads 1"
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2

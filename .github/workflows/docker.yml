@@ -3,12 +3,11 @@
 # 別個の利用規約、プライバシーポリシー、
 # サポートドキュメンテーションが適用されます。
 
-
 name: Create and publish a Docker image
 
 on:
   push:
-    branches: ['master']
+    branches: ["master"]
 
 env:
   REGISTRY: ghcr.io
