@@ -11,7 +11,7 @@ fs_extra = "1.2.0"
 http = "0.2.5"
 log = "0.4.14"
 m3u8-rs = "3.0.0"
-reqwest = { version = "0.11.6", features = ["blocking","json"] }
+reqwest = { version = "0.11.7", features = ["blocking","json"] }
 scraper = "0.12.0"
 serde = { version = "1.0.130", features = ["derive"] }
 serde-xml-rs = "0.5.1"
