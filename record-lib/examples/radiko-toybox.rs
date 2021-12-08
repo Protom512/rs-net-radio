@@ -142,6 +142,16 @@ impl Program {
     }
 
     fn auth() {
+        //
+        //curl -s \
+        //  --header "pragma: no-cache" \
+        //  --header "X-Radiko-App: pc_html5" \
+        //  --header "X-Radiko-App-Version: 0.0.1" \
+        //  --header "X-Radiko-User: test-stream" \
+        //  --header "X-Radiko-Device: pc" \
+        //  --dump-header auth1_fms_${pid} \
+        //  -o /dev/null \
+        // https://radiko.jp/v2/api/auth1
         unimplemented!()
     }
 }
