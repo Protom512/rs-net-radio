@@ -1,6 +1,6 @@
 use fs_extra;
 use fs_extra::file::CopyOptions;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::env::temp_dir;
@@ -84,8 +84,12 @@ impl OnsenProgram {
                         &contents.title.as_str().replace(" ", "_")
                     );
                     let output_path = format!("{}/{}", tmpdir, &file_name);
-                    debug!("{}", file_name);
-                    debug!("{:?}", n);
+                    let archive_file = format!("{}/{}", &archive_path, &file_name);
+                    let path = Path::new(&archive_file);
+                    if path.exists() {
+                        warn!("{} already exists, skipping", &archive_file);
+                        continue;
+                    }
                     let output = Command::new("ffmpeg")
                         .arg("-loglevel")
                         .arg("warning")
@@ -119,7 +123,7 @@ impl OnsenProgram {
                         }
                     };
                 }
-                None => error!(
+                None => warn!(
                     "streaming url is null for {},{}",
                     self.title, contents.title
                 ),
