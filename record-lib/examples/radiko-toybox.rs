@@ -141,19 +141,76 @@ impl Program {
         // self.auth();
     }
 
-    fn auth() {
+    fn auth1() -> Response {
         //
-        //curl -s \
-        //  --header "pragma: no-cache" \
-        //  --header "X-Radiko-App: pc_html5" \
-        //  --header "X-Radiko-App-Version: 0.0.1" \
-        //  --header "X-Radiko-User: test-stream" \
-        //  --header "X-Radiko-Device: pc" \
-        //  --dump-header auth1_fms_${pid} \
-        //  -o /dev/null \
-        // https://radiko.jp/v2/api/auth1
+        // curl -s \
+        //      --header "pragma: no-cache" \
+        //      --header "X-Radiko-App: pc_html5" \
+        //      --header "X-Radiko-App-Version: 0.0.1" \
+        //      --header "X-Radiko-User: test-stream" \
+        //      --header "X-Radiko-Device: pc" \
+        //      --dump-header auth1_fms_${pid} \
+        //      -o /dev/null \
+        //      https://radiko.jp/v2/api/auth1
+        let client = Client::new();
+        let url = "https://radiko.jp/v2/api/auth1";
+        let result = match client
+            .get(url)
+            .header("pragma", "no-cache")
+            .header("X-Radiko-App", "pc_html5")
+            .header("X-Radiko-App-Version", "0.0.1")
+            .header("X-Radiko-User", "test-stream")
+            .header("X-Radiko-Device", "pc")
+            .send()
+        {
+            Ok(n) => {
+                //println!("{:#?}", n);
+                n
+            }
+            Err(e) => {
+                panic!("{}", e);
+            }
+        };
+        /*
+                return header
+                {
+            "server": "nginx",
+            "date": "Fri, 10 Dec 2021 03:35:40 GMT",
+            "content-type": "text/plain",
+            "transfer-encoding": "chunked",
+            "connection": "keep-alive",
+            "x-radiko-apptype": "pc",
+            "x-radiko-apptype2": "pc",
+            "x-radiko-authtoken": "O_rlqtaPquyAH6sAIBGopg",
+            "x-radiko-authwait": "0",
+            "x-radiko-delay": "15",
+            "x-radiko-keylength": "16",
+            "x-radiko-keyoffset": "0",
+            "access-control-expose-headers": "X-Radiko-AuthToken, X-Radiko-Partialkey, X-Radiko-AppType, X-Radiko-AuthWait, X-Radiko-Delay, X-Radiko-KeyLength, X-Radiko-KeyOffset, X-Radiko-SubStation",
+            "access-control-allow-credentials": "true",
+        }
+
+
+                */
+
+        result
+    }
+    fn auth2() {
+        // curl -s \
+        //--header "pragma: no-cache" \
+        //     --header "X-Radiko-User: test-stream" \
+        //     --header "X-Radiko-Device: pc" \
+        //     --header "X-Radiko-AuthToken: ${authtoken}" \
+        //     --header "X-Radiko-PartialKey: ${partialkey}" \
+        //     -o auth2_fms_${pid} \
+        //https://radiko.jp/v2/api/auth2
         unimplemented!()
     }
+}
+#[test]
+
+fn pass_auth1() {
+    assert_eq!(Program::auth1().status(), http::StatusCode::OK)
 }
 #[test]
 
