@@ -204,7 +204,24 @@ impl Program {
         //     --header "X-Radiko-PartialKey: ${partialkey}" \
         //     -o auth2_fms_${pid} \
         //https://radiko.jp/v2/api/auth2
+
         unimplemented!()
+    }
+    fn auth2(){
+// curl -s \
+     //--header "pragma: no-cache" \
+//     --header "X-Radiko-User: test-stream" \
+//     --header "X-Radiko-Device: pc" \
+//     --header "X-Radiko-AuthToken: ${authtoken}" \
+//     --header "X-Radiko-PartialKey: ${partialkey}" \
+//     -o auth2_fms_${pid} \
+     //https://radiko.jp/v2/api/auth2
+
+if [ $? -ne 0 -o ! -f auth2_fms_${pid} ]; then
+  echo "failed auth2 process"
+  exit 1
+fi
+
     }
 }
 #[test]
