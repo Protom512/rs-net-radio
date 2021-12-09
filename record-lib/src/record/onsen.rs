@@ -80,8 +80,13 @@ impl OnsenProgram {
                 Some(n) => {
                     let file_name = format!(
                         "{}_{}.mp4",
-                        &self.title.as_str().replace(" ", "_").replace("　", "_"),
-                        &contents.title.as_str().replace(" ", "_")
+                        &self
+                            .title
+                            .as_str()
+                            .replace(" ", "_")
+                            .replace("　", "_")
+                            .replace("/", "_"),
+                        &contents.title.as_str().replace(" ", "_").replace("/", "_")
                     );
                     let output_path = format!("{}/{}", tmpdir, &file_name);
                     let archive_file = format!("{}/{}", &archive_path, &file_name);

@@ -11,11 +11,11 @@ use record_lib::record::onsen::OnsenProgram;
 
 use tokio_cron_scheduler::{Job, JobScheduler};
 
-fn job_Ag(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
-    info!("running job_Ag");
+fn job_ag(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
+    info!("running job_ag");
     debug!("{}", &init_schedule);
     let current_time = Local::now();
-    return Job::new(init_schedule, move |_uuid, _l| {
+    Job::new(init_schedule, move |_uuid, _l| {
         let mut record_sched = JobScheduler::new();
         let arr: Vec<Ag> = Ag::init();
 
@@ -44,19 +44,19 @@ fn job_Ag(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
             }
         }
         let _res = tokio::spawn(record_sched.start());
-    });
+    })
 }
 
 fn job_onsen(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
     info!("running job_onsen");
     debug!("{}", &init_schedule);
-    return Job::new(init_schedule, move |_uuid, _l| {
+    Job::new(init_schedule, move |_uuid, _l| {
         let json: Vec<OnsenProgram> = OnsenProgram::init();
         for i in &json {
             info!("{}", i.title);
             i.record();
         }
-    });
+    })
 }
 
 #[tokio::main]
@@ -102,7 +102,7 @@ async fn main() {
         .datetime_from_str(&init_string, "%Y/%m/%d %H:%M:%S")
         .expect("Failed to parse datetime");
 
-    let job = if current_time.timestamp() > init_dt.timestamp() {
+    if current_time.timestamp() > init_dt.timestamp() {
         let current_shot = current_time + Duration::seconds(3);
         let schedule = format!(
             "{} {} {} {} {} * {}",
@@ -114,15 +114,14 @@ async fn main() {
             current_shot.with_timezone(&Utc).year()
         );
         info!("in if1");
-        job_Ag(&schedule).unwrap()
-    } else {
-        info!("in else1");
-        job_Ag(init_schedule).unwrap()
-    };
+        let job = job_ag(&schedule).unwrap();
+        sched.add(job).expect("Failed to Add job to cron");
+    }
+    let job = job_ag(init_schedule).unwrap();
     sched.add(job).expect("Failed to Add job to cron");
     // let mut record_sched = JobScheduler::new();
 
-    let job = if current_time.timestamp() > init_dt.timestamp() {
+    if current_time.timestamp() > init_dt.timestamp() {
         let current_shot = current_time + Duration::seconds(3);
         let schedule = format!(
             "{} {} {} {} {} * {}",
@@ -134,12 +133,12 @@ async fn main() {
             current_shot.with_timezone(&Utc).year()
         );
         info!("in if2");
-        job_onsen(&schedule).expect("Failed to create Job")
-    } else {
-        info!("in else2");
-        job_onsen(init_schedule).expect("Failed to create Job")
-    };
+        let job = job_onsen(&schedule).expect("Failed to create Job");
+        sched.add(job).expect("Failed to Add job to cron");
+    }
 
+    info!("in else2");
+    let job = job_onsen(init_schedule).expect("Failed to create Job");
     sched.add(job).expect("Failed to Add job to cron");
 
     let _res = match sched.start().await {
