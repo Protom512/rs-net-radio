@@ -1,5 +1,5 @@
 pub mod ag;
-// pub mod hibiki;
+pub mod hibiki;
 pub mod onsen;
 mod radiko;
 
