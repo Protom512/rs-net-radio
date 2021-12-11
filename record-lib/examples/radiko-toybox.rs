@@ -217,11 +217,8 @@ impl Program {
 //     -o auth2_fms_${pid} \
      //https://radiko.jp/v2/api/auth2
 
-if [ $? -ne 0 -o ! -f auth2_fms_${pid} ]; then
-  echo "failed auth2 process"
-  exit 1
-fi
 
+        unimplemented!()
     }
 }
 #[test]
