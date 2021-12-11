@@ -138,20 +138,12 @@ impl Program {
                 panic!();
             }
         }
-        // self.auth();
     }
 
+    fn download() {
+        let resp = Program::auth1();
+    }
     fn auth1() -> Response {
-        //
-        // curl -s \
-        //      --header "pragma: no-cache" \
-        //      --header "X-Radiko-App: pc_html5" \
-        //      --header "X-Radiko-App-Version: 0.0.1" \
-        //      --header "X-Radiko-User: test-stream" \
-        //      --header "X-Radiko-Device: pc" \
-        //      --dump-header auth1_fms_${pid} \
-        //      -o /dev/null \
-        //      https://radiko.jp/v2/api/auth1
         let client = Client::new();
         let url = "https://radiko.jp/v2/api/auth1";
         let result = match client
@@ -195,16 +187,27 @@ impl Program {
 
         result
     }
-    fn auth2() {
-        // curl -s \
-        //--header "pragma: no-cache" \
-        //     --header "X-Radiko-User: test-stream" \
-        //     --header "X-Radiko-Device: pc" \
-        //     --header "X-Radiko-AuthToken: ${authtoken}" \
-        //     --header "X-Radiko-PartialKey: ${partialkey}" \
-        //     -o auth2_fms_${pid} \
-        //https://radiko.jp/v2/api/auth2
-        unimplemented!()
+    fn auth2(token: &str, partial_key: String) -> Response {
+        let client = Client::new();
+        let url = "https://radiko.jp/v2/api/auth2";
+        let result = match client
+            .get(url)
+            .header("pragma", "no-cache")
+            .header("X-Radiko-User", " test-stream")
+            .header("X-Radiko-Device", "pc")
+            .header("X-Radiko-AuthToken", token)
+            .header("X-Radiko-PartialKey", partial_key)
+            .send()
+        {
+            Ok(n) => {
+                //println!("{:#?}", n);
+                n
+            }
+            Err(e) => {
+                panic!("{}", e);
+            }
+        };
+        result
     }
 }
 #[test]
@@ -212,6 +215,43 @@ impl Program {
 fn pass_auth1() {
     assert_eq!(Program::auth1().status(), http::StatusCode::OK)
 }
+
+#[test]
+fn pass_auth2() {
+    let resp = Program::auth1();
+    let header_str = resp.headers();
+
+    let RADIKO_AUTHKEY_VALUE = String::from("bcd151073c03b352e1ef2fd66c32209da9ca0afa");
+
+    let authtoken = header_str
+        .get("x-radiko-authtoken")
+        .expect("Failed to get auth-token")
+        .to_str()
+        .unwrap();
+    let key_length: u8 = header_str
+        .get("x-radiko-keylength")
+        .expect("Failed to get keylength")
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let keyoffset: usize = header_str
+        .get("x-radiko-keyoffset")
+        .expect("Failed to get keyoffset")
+        .to_str()
+        .unwrap()
+        .parse()
+        .expect("Failed to parse to integer");
+    // let end = u8::try_from(keyoffset + key_length).expect("Failed to convert to u8");
+    let partial_key = base64::encode(
+        &RADIKO_AUTHKEY_VALUE[keyoffset as usize..(keyoffset + key_length as usize) as usize],
+    );
+    assert_eq!(
+        Program::auth2(authtoken, partial_key).status(),
+        http::StatusCode::OK
+    )
+}
+
 #[test]
 
 fn false_validate_program_bangumi_kyushi() {
@@ -265,7 +305,8 @@ fn panic_parse_date() {
     progdate.parse_date();
 }
 fn main() {
-    let m = get_program_dom("BAYFM78");
+    std::env::set_var("RUST_LOG", "info");
+    let m = get_program_dom("QRR");
 
     let qrr: Radiko = match from_str(match &m.text() {
         Ok(l) => l,
@@ -287,7 +328,6 @@ fn main() {
                 Progset::Prog(n) => {
                     // info!("{}", &n.parse_time());
                     info!("{}", &n.title);
-                    n.dl_swf();
                 }
                 Progset::Date(date) => error!("geee: {:#?} ", date),
             }
