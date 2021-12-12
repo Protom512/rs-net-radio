@@ -4,6 +4,11 @@ on:
       - master
       - develop
 
+  pull_request:
+    branches:
+      - main
+      - develop
+
 name: Code Coverage
 
 jobs:
