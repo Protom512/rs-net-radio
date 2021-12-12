@@ -1,6 +1,6 @@
 // use core::panicking::panic;
 use log; // 0.4.14
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use reqwest; // 0.11.4
 use reqwest::blocking::Response;
 use reqwest::header::{ORIGIN, USER_AGENT};
@@ -8,7 +8,7 @@ use serde::Deserialize;
 use serde_json;
 use std::env;
 use std::env::temp_dir;
-use std::fmt::format;
+// use std::fmt::format;
 
 extern crate m3u8_rs;
 extern crate tempdir;
@@ -18,8 +18,8 @@ use std::fs;
 use std::path::Path;
 
 use fs_extra::file::CopyOptions;
-use nom::InputIter;
-use std::process::{Command, ExitStatus};
+// use nom::InputIter;
+use std::process::Command;
 
 #[derive(Deserialize, Debug)]
 struct HibikiPlaylistInfo {
@@ -46,7 +46,7 @@ struct HibikiEpisode {
 #[derive(Deserialize, Debug)]
 pub struct HibikiJson {
     access_id: String,
-    cast: String,
+    //cast: String,
     latest_episode_id: u32,
     latest_episode_name: String,
     name: String,
@@ -110,7 +110,7 @@ pub fn format_forbidden_char(filename: &str) -> String {
     // 禁止文字(全角記号)
     // let used_file_name = "￥／：＊？`”＞＜｜";
     //TODO motto smart ni yaritai
-    let return_value = filename
+    filename
         .replace("\\", "￥")
         .replace("/", "／")
         .replace("\"", "”")
@@ -119,8 +119,7 @@ pub fn format_forbidden_char(filename: &str) -> String {
         .replace("?", "？")
         .replace("`", "`")
         .replace(">", "＞")
-        .replace("<", "＜");
-    return_value
+        .replace("<", "＜")
 }
 #[test]
 fn pass_format_char() {
@@ -223,13 +222,19 @@ pub fn record() {
         let filename = format!("{}_{}.mp4", i.name, i.latest_episode_name);
         // format characters
         let filename = format_forbidden_char(filename.as_str());
-
-        let working_path = format!("{}/{}", tmpdir, filename);
+        let output_path = format!("{}/{}", archive_path, &filename);
+        let working_path = format!("{}/{}", tmpdir, &filename);
 
         info!("name:{}\n\tid:{:?}\n", i.name, video.live_flg);
         let url = video.get_m3u8_url();
 
         debug!("title: {},url\"{}\"", i.name, url);
+
+        let path = Path::new(&output_path);
+        if path.exists() {
+            warn!("{} already exists, skipping", &output_path);
+            continue;
+        }
 
         let output = Command::new("ffmpeg")
             .arg("-loglevel")
@@ -248,16 +253,11 @@ pub fn record() {
         let converted: String = String::from_utf8(output.stderr).unwrap();
 
         if !output.status.success() {
-            println!("{}", converted);
             error!("{}", converted);
         } else {
             let options = CopyOptions::new();
-            fs_extra::file::move_file(
-                &working_path,
-                format!("{}/{}", archive_path, &filename),
-                &options,
-            )
-            .expect("Failed to archive file");
+            fs_extra::file::move_file(&working_path, &output_path, &options)
+                .expect("Failed to archive file");
         }
     }
 }

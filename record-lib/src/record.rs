@@ -1,7 +1,7 @@
 pub mod ag;
 pub mod hibiki;
 pub mod onsen;
-mod radiko;
+pub mod radiko;
 
 use chrono::{DateTime, Duration, Local};
 

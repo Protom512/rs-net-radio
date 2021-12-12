@@ -1029,6 +1029,7 @@ dependencies = [
  "scraper",
  "serde",
  "serde-xml-rs",
+ "serde_derive",
  "serde_json",
  "tempdir",
  "tempfile",
