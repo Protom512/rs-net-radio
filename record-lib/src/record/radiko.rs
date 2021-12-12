@@ -430,7 +430,7 @@ fn pass_auth1() {
 
 #[test]
 fn pass_auth2() {
-    let resp = Radiko::auth1();
+    let resp = RecordRadiko::auth1();
     let header_str = resp.headers();
 
     let radiko_authkey_value = String::from("bcd151073c03b352e1ef2fd66c32209da9ca0afa");
