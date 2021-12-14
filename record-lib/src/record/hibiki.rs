@@ -47,11 +47,11 @@ struct HibikiEpisode {
 pub struct HibikiJson {
     access_id: String,
     //cast: String,
-    latest_episode_id: u32,
-    latest_episode_name: String,
+    latest_episode_id: Option<u32>,
+    latest_episode_name: Option<String>,
     name: String,
 }
-fn get_api(url: &str) -> reqwest::Result<Response> {
+pub fn get_api(url: &str) -> reqwest::Result<Response> {
     let client = reqwest::blocking::Client::new();
 
     client
@@ -169,11 +169,11 @@ pub fn record() {
                 continue;
             }
         };
-        if i.latest_episode_id != episode.id {
+        if i.latest_episode_id.unwrap() != episode.id {
             error!(
                 "Not Downloadable. Outdated Episode, title={name} expected_id={expected_id} actual_id={actual_id}",
-                name = i.latest_episode_name,
-                expected_id=i.latest_episode_id,
+                name = i.latest_episode_name.expect("Failed to get name"),
+                expected_id=i.latest_episode_id.unwrap(),
                 actual_id=episode.id
             );
             continue;
@@ -208,6 +208,9 @@ pub fn record() {
             }
             Err(e) => panic!("$RS_NET_ARCHIVE_PATH  is not set: {}", e),
         };
+        if i.latest_episode_id.is_none() {
+            continue;
+        }
         let tmpdir = match temp_dir().to_str() {
             Some(m) => {
                 info!("working path: {}", m);
@@ -219,7 +222,7 @@ pub fn record() {
         };
 
         // create file_name
-        let filename = format!("{}_{}.mp4", i.name, i.latest_episode_name);
+        let filename = format!("{}_{}.mp4", i.name, i.latest_episode_name.unwrap());
         // format characters
         let filename = format_forbidden_char(filename.as_str());
         let output_path = format!("{}/{}", archive_path, &filename);
