@@ -165,24 +165,24 @@ async fn main() {
     sched.add(job).expect("Failed to Add job to cron");
     // let mut record_sched = JobScheduler::new();
 
-//    if current_time.timestamp() > init_dt.timestamp() {
-//        let current_shot = current_time + Duration::seconds(3);
-//        let schedule = format!(
-//            "{} {} {} {} {} * {}",
-//            current_shot.with_timezone(&Utc).second(),
-//            current_shot.with_timezone(&Utc).minute(),
-//            current_shot.with_timezone(&Utc).hour(),
-//            current_shot.with_timezone(&Utc).day(),
-//            current_shot.with_timezone(&Utc).month(),
-//            current_shot.with_timezone(&Utc).year()
-//        );
-//
-//        let job = job_onsen(&schedule).expect("Failed to create Job");
-//        sched.add(job).expect("Failed to Add job to cron");
-//    }
-//
-//    let job = job_onsen(init_schedule).expect("Failed to create Job");
-//    sched.add(job).expect("Failed to Add job to cron");
+    //    if current_time.timestamp() > init_dt.timestamp() {
+    //        let current_shot = current_time + Duration::seconds(3);
+    //        let schedule = format!(
+    //            "{} {} {} {} {} * {}",
+    //            current_shot.with_timezone(&Utc).second(),
+    //            current_shot.with_timezone(&Utc).minute(),
+    //            current_shot.with_timezone(&Utc).hour(),
+    //            current_shot.with_timezone(&Utc).day(),
+    //            current_shot.with_timezone(&Utc).month(),
+    //            current_shot.with_timezone(&Utc).year()
+    //        );
+    //
+    //        let job = job_onsen(&schedule).expect("Failed to create Job");
+    //        sched.add(job).expect("Failed to Add job to cron");
+    //    }
+    //
+    //    let job = job_onsen(init_schedule).expect("Failed to create Job");
+    //    sched.add(job).expect("Failed to Add job to cron");
     //radiko
 
     if current_time.timestamp() > init_dt.timestamp() {
