@@ -207,7 +207,7 @@ impl RecordRadiko {
 
         let output = Command::new("ffmpeg")
             .arg("-loglevel")
-            .arg("error")
+            .arg("debug")
             .arg("-fflags")
             .arg("+discardcorrupt")
             .arg("-headers")
@@ -215,11 +215,14 @@ impl RecordRadiko {
                 "X-Radiko-Authtoken: {authtoken}",
                 authtoken = authtoken
             ))
+            .arg("-y")
             .arg("-i")
             .arg(&self.url)
-            .arg("-acodec copy")
+            .arg("-acodec")
+            .arg("copy")
             .arg("-vn")
-            .arg("-bsf:a aac_adtstoasc")
+            .arg("-bsf:a")
+            .arg("aac_adtstoasc")
             .arg("-t")
             .arg(self.dur.to_string())
             .arg(&working_path)
@@ -342,7 +345,7 @@ impl Radiko<'_> {
 
 impl ChStreamingUrl {
     pub fn get_streaming_url(&self) -> String {
-        info!("{:#?}", self.list);
+        debug!("{:#?}", self.list);
         for i in &self.list[0..1] {
             match i {
                 Urlset::Url(n) => {

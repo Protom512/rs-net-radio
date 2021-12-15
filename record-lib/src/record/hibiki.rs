@@ -84,13 +84,13 @@ impl HibikiVideo {
         //     Err(e) => error!("{}", e),
         // };
         debug!("{:?}", playlist);
-        println!("{:#?}", &playlist);
+        debug!("{:#?}", &playlist);
         let playlist_info =
             match serde_json::from_str::<HibikiPlaylistInfo>(&playlist.text().unwrap()) {
                 Ok(n) => n,
                 Err(e) => panic!("{}", e),
             };
-        println!("{:#?}", &playlist_info);
+        debug!("{:#?}", &playlist_info);
         match playlist_info.token {
             Some(n) => {
                 debug!(
@@ -148,12 +148,18 @@ pub fn record() {
         }
     };
     for i in sea {
-        println!("{:?}", i);
-        let result = get_api(&format!(
+        debug!("{:?}", i);
+        let result = match get_api(&format!(
             "https://vcms-api.hibiki-radio.jp/api/v1/programs/{}",
             i.access_id
-        ))
-        .unwrap();
+        )) {
+            Ok(n) => n,
+            Err(e) => {
+                error!("Something wrong on {:#?},\n {:#?}", i, e);
+                continue;
+            }
+        };
+
         let sea = match serde_json::from_str::<HibikiEpisode>(&result.text().unwrap()) {
             Ok(n) => n,
             Err(e) => {
@@ -228,7 +234,7 @@ pub fn record() {
         let output_path = format!("{}/{}", archive_path, &filename);
         let working_path = format!("{}/{}", tmpdir, &filename);
 
-        info!("name:{}\n\tid:{:?}\n", i.name, video.live_flg);
+        debug!("name:{}\n\tid:{:?}\n", i.name, video.live_flg);
         let url = video.get_m3u8_url();
 
         debug!("title: {},url\"{}\"", i.name, url);
