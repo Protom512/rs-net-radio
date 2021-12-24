@@ -261,12 +261,12 @@ pub fn record() {
 
         let converted: String = String::from_utf8(output.stderr).unwrap();
 
-        if !output.status.success() {
-            error!("{}", converted);
-        } else {
+        if output.status.success() {
             let options = CopyOptions::new();
             fs_extra::file::move_file(&working_path, &output_path, &options)
                 .expect("Failed to archive file");
+        } else {
+            error!("{}", converted);
         }
     }
 }
