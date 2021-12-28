@@ -1,0 +1,3 @@
+[submodule "abematv/streamlink"]
+	path = abematv/streamlink
+	url = https://github.com/streamlink/streamlink.git
