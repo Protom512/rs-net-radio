@@ -13,7 +13,7 @@ http = "0.2.6"
 log = "0.4.14"
 m3u8-rs = "3.0.0"
 nom = "7.1.0"
-reqwest = { version = "0.11.9", features = ["blocking","json"] }
+reqwest = { version = "0.11.10", features = ["blocking","json"] }
 scraper = "0.12.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde-xml-rs = "0.5.1"
