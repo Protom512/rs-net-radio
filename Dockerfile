@@ -1,5 +1,5 @@
 FROM  ekidd/rust-musl-builder  as builder
-ADD --chown=rust:rust . ./
+COPY --chown=rust:rust . ./
 
 RUN cargo build --release
 
