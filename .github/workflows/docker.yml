@@ -7,7 +7,9 @@ name: Create and publish a Docker image
 
 on:
   push:
-    branches: ["master"]
+    branches: ["master","develop"]
+  schedule:
+    - cron: '30 05 15 * *'
 
 env:
   REGISTRY: ghcr.io
