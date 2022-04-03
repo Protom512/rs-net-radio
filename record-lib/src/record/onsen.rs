@@ -53,7 +53,7 @@ impl OnsenProgram {
                 let path = format!("{}/onsen", n);
                 debug!("{:#?}", &path);
                 if !Path::new(&path).is_dir() {
-                    match fs::create_dir(format!("{}/onsen", n)) {
+                    match fs::create_dir_all(format!("{}/onsen", n)) {
                         Ok(m) => debug!("{:?}", m),
                         Err(e) => {
                             error!("{}", e);

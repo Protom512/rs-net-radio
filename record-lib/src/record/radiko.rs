@@ -176,7 +176,7 @@ impl RecordRadiko {
                 let path = format!("{}/radiko", n,);
                 debug!("{:#?}", &path);
                 if !Path::new(&path).is_dir() {
-                    match fs::create_dir(&path) {
+                    match fs::create_dir_all(&path) {
                         Ok(m) => debug!("{:?}", m),
                         Err(e) => {
                             error!("{}", e);
