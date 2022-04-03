@@ -479,7 +479,7 @@ fn false_validate_program_bangumi_kyushi() {
         title: Cow::from("番組休止"),
         // pfm: None,
     };
-    assert_eq!(prog.validate_program(), false)
+    assert!(!(prog.validate_program()))
 }
 #[test]
 
@@ -493,7 +493,7 @@ fn false_validate_program_housou_kyushi() {
         title: Cow::from("放送休止"),
         // pfm: None,
     };
-    assert_eq!(prog.validate_program(), false)
+    assert!(!(prog.validate_program()))
 }
 
 impl ProgDate {
