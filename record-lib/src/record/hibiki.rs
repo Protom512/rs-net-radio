@@ -49,6 +49,7 @@ pub struct HibikiJson {
     //cast: String,
     latest_episode_id: Option<u32>,
     latest_episode_name: Option<String>,
+    pc_image_url: Option<String>,
     name: String,
 }
 pub fn get_api(url: &str) -> reqwest::Result<Response> {
@@ -66,7 +67,7 @@ pub fn get_api(url: &str) -> reqwest::Result<Response> {
 }
 #[test]
 fn pass_get_api() {
-    let result = get_api("https://vcms-api.hibiki-radio.jp/api/v1//programs?limit=1")
+    let result = get_api("https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=1")
         .expect("Failed to request on test");
     assert_eq!(result.status(), http::StatusCode::OK)
 }
@@ -79,11 +80,6 @@ impl HibikiVideo {
         );
         debug!("{}", url);
         let playlist = get_api(&url).unwrap();
-        // let playlist = match res {
-        //     Ok(n) => n,
-        //     Err(e) => error!("{}", e),
-        // };
-        debug!("{:?}", playlist);
         debug!("{:#?}", &playlist);
         let playlist_info =
             match serde_json::from_str::<HibikiPlaylistInfo>(&playlist.text().unwrap()) {
@@ -129,7 +125,7 @@ pub fn record() {
     let page = 1;
 
     let res = get_api(&format!(
-        "https://vcms-api.hibiki-radio.jp/api/v1//programs?limit=50&page={}",
+        "https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={}",
         page
     ));
     let get_result = match res {
@@ -147,6 +143,7 @@ pub fn record() {
             panic!("{}", e);
         }
     };
+
     for i in sea {
         debug!("{:?}", i);
         let result = match get_api(&format!(
@@ -217,6 +214,7 @@ pub fn record() {
         if i.latest_episode_id.is_none() {
             continue;
         }
+
         let tmpdir = match temp_dir().to_str() {
             Some(m) => {
                 info!("working path: {}", m);
@@ -224,6 +222,20 @@ pub fn record() {
             }
             None => {
                 panic!("cannot find tmpdir")
+            }
+        };
+
+        let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, &i.name);
+        let mut img = std::fs::File::create(&imagefile).unwrap();
+        match i.pc_image_url {
+            Some(n) => reqwest::blocking::get(&n)
+                .unwrap()
+                .copy_to(&mut img)
+                .unwrap(),
+
+            None => {
+                error!("Image not downloadable.");
+                continue;
             }
         };
 
@@ -249,8 +261,11 @@ pub fn record() {
             .arg("-loglevel")
             .arg("warning")
             .arg("-i")
+            .arg(&imagefile)
+            .arg("-i")
             .arg(&url)
-            .arg("-vn")
+            .arg("-vcodec")
+            .arg("copy")
             .arg("-acodec")
             .arg("copy")
             .arg("-bsf:a")

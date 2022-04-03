@@ -1,7 +1,9 @@
 /target
 Temp
+TEMP
 net-radio-archive
-
+*json
+.DS_Store
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/jetbrains,rust,visualstudiocode,vim
