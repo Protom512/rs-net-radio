@@ -199,7 +199,7 @@ pub fn record() {
                 let path = format!("{}/hibiki", n);
                 debug!("{:#?}", &path);
                 if !Path::new(&path).is_dir() {
-                    match fs::create_dir(format!("{}/hibiki", n)) {
+                    match fs::create_dir_all(format!("{}/hibiki", n)) {
                         Ok(m) => debug!("{:?}", m),
                         Err(e) => {
                             error!("{}", e);

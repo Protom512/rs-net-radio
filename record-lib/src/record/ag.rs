@@ -28,7 +28,7 @@ impl Ag {
                 let path = format!("{}/ag", n);
                 debug!("{:#?}", &path);
                 if !Path::new(&path).is_dir() {
-                    match fs::create_dir(format!("{}/ag", n)) {
+                    match fs::create_dir_all(format!("{}/ag", n)) {
                         Ok(m) => debug!("{:?}", m),
                         Err(e) => {
                             error!("{}", e);
@@ -59,7 +59,9 @@ impl Ag {
         info!("Title: {}", self.title);
         info!("StartTime: {}", self.start_datetime);
         let path = Path::new(&working_path);
-        path.exists();
+        if path.exists() {
+            dbg!("testign ");
+        }
         let arg = self.end_datetime - start;
         info!("Duration: {}", arg);
 
