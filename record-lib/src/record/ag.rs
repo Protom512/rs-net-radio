@@ -18,12 +18,13 @@ pub struct Ag {
 }
 
 impl Ag {
+    const RS_NET_ARCHIVE_PATH: &'static str = "RS_NET_ARCHIVE_PATH";
     ///
     ///  # ag+の録画関数
     ///
     pub fn record(self) -> Result<ExitStatus, std::io::Error> {
         let start = self.start_datetime + Duration::seconds(-15);
-        let archive_path = match env::var("RS_NET_ARCHIVE_PATH") {
+        let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
             Ok(n) => {
                 let path = format!("{}/ag", n);
                 debug!("{:#?}", &path);
@@ -182,7 +183,7 @@ impl Ag {
             }
             let start_hms = local_date.and_hms(0, 0, 0) + start_offset_h + start_offset_m;
             let end_hms = local_date.and_hms(0, 0, 0) + end_offset_h + end_offset_m;
-            arr.push(Ag::new(&title.to_string(), &start_hms, &end_hms));
+            arr.push(Ag::new(title, &start_hms, &end_hms));
         }
         arr
     }

@@ -1,5 +1,5 @@
 use chrono::Local;
-use http;
+
 extern crate record_lib;
 use record_lib::record::ag::Ag;
 use std::fs::File;
@@ -18,12 +18,12 @@ fn check_new() {
         end_datetime: et,
     };
 
-    assert_eq!(Ag::new(&title.to_string(), &st, &et), expect);
+    assert_eq!(Ag::new(title, &st, &et), expect);
 }
 #[test]
 fn test_init() {
     let f = File::open("./ag.html");
     print!("{:#?}", f);
-    let resp = Ag::get_html();
+    let _resp = Ag::get_html();
     //assert_eq!(Ag::init())
 }

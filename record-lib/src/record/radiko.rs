@@ -38,6 +38,7 @@ pub struct Station<'a> {
     #[serde(borrow)]
     pub scd: Scd<'a>,
 }
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 enum ID {
     QRR,
@@ -137,7 +138,7 @@ impl RecordRadiko {
         debug!("{:#?}", hoge);
         hoge
     }
-
+    const RS_NET_ARCHIVE_PATH: &'static str = "RS_NET_ARCHIVE_PATH";
     pub fn download(&self) -> ExitStatus {
         let resp = RecordRadiko::auth1();
         let header_str = resp.headers();
@@ -171,7 +172,7 @@ impl RecordRadiko {
         debug!("{:#?}\n", &resp.text().expect("Failed to get resp body"));
 
         // get archive path
-        let archive_path = match env::var("RS_NET_ARCHIVE_PATH") {
+        let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
             Ok(n) => {
                 let path = format!("{}/radiko", n,);
                 debug!("{:#?}", &path);
@@ -246,15 +247,15 @@ impl RecordRadiko {
         // let used_file_name = "￥／：＊？`”＞＜｜";
         //TODO motto smart ni yaritai
         filename
-            .replace("\\", "￥")
-            .replace("/", "／")
-            .replace("\"", "”")
-            .replace(":", "：")
-            .replace("*", "＊")
-            .replace("?", "？")
-            .replace("`", "`")
-            .replace(">", "＞")
-            .replace("<", "＜")
+            .replace('\\', "￥")
+            .replace('/', "／")
+            .replace('\"', "”")
+            .replace(':', "：")
+            .replace('*', "＊")
+            .replace('?', "？")
+            .replace('`', "`")
+            .replace('>', "＞")
+            .replace('<', "＜")
     }
     fn auth1() -> Response {
         let client = Client::new();

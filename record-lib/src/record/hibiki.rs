@@ -107,20 +107,21 @@ pub fn format_forbidden_char(filename: &str) -> String {
     // let used_file_name = "￥／：＊？`”＞＜｜";
     //TODO motto smart ni yaritai
     filename
-        .replace("\\", "￥")
-        .replace("/", "／")
-        .replace("\"", "”")
-        .replace(":", "：")
-        .replace("*", "＊")
-        .replace("?", "？")
-        .replace("`", "`")
-        .replace(">", "＞")
-        .replace("<", "＜")
+        .replace('\\', "￥")
+        .replace('/', "／")
+        .replace('\"', "”")
+        .replace(':', "：")
+        .replace('*', "＊")
+        .replace('?', "？")
+        .replace('`', "`")
+        .replace('>', "＞")
+        .replace('<', "＜")
 }
 #[test]
 fn pass_format_char() {
     assert_eq!(format_forbidden_char("Fate/Test"), "Fate／Test")
 }
+static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
 pub fn record() {
     let page = 1;
 
@@ -194,7 +195,7 @@ pub fn record() {
         }
 
         // get archive path
-        let archive_path = match env::var("RS_NET_ARCHIVE_PATH") {
+        let archive_path = match env::var(RS_NET_ARCHIVE_PATH) {
             Ok(n) => {
                 let path = format!("{}/hibiki", n);
                 debug!("{:#?}", &path);
@@ -228,11 +229,14 @@ pub fn record() {
         let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, &i.name);
         let mut img = std::fs::File::create(&imagefile).unwrap();
         match i.pc_image_url {
-            Some(n) => reqwest::blocking::get(&n)
-                .unwrap()
-                .copy_to(&mut img)
-                .unwrap(),
-
+            Some(ref n) => match reqwest::blocking::get(n) {
+                Ok(mut m) => m.copy_to(&mut img).unwrap(),
+                Err(e) => {
+                    debug!("{:#?}", i);
+                    error!("{}", e);
+                    continue;
+                }
+            },
             None => {
                 error!("Image not downloadable.");
                 continue;

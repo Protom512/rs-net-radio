@@ -47,8 +47,9 @@ pub struct OnsenProgram {
     // "updated"
 }
 impl OnsenProgram {
+    const RS_NET_ARCHIVE_PATH: &'static str = "RS_NET_ARCHIVE_PATH";
     pub fn record(&self) {
-        let archive_path = match env::var("RS_NET_ARCHIVE_PATH") {
+        let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
             Ok(n) => {
                 let path = format!("{}/onsen", n);
                 debug!("{:#?}", &path);
@@ -83,10 +84,10 @@ impl OnsenProgram {
                         &self
                             .title
                             .as_str()
-                            .replace(" ", "_")
-                            .replace("　", "_")
-                            .replace("/", "_"),
-                        &contents.title.as_str().replace(" ", "_").replace("/", "_")
+                            .replace(' ', "_")
+                            .replace('　', "_")
+                            .replace('/', "_"),
+                        &contents.title.as_str().replace(' ', "_").replace('/', "_")
                     );
                     let output_path = format!("{}/{}", tmpdir, &file_name);
                     let archive_file = format!("{}/{}", &archive_path, &file_name);

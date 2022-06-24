@@ -203,9 +203,9 @@ async fn main() {
         sched.add(job).expect("Failed to Add job to cron");
     }
 
-    let job = job_radiko(&init_schedule, "QRR").expect("Failed to create Job");
+    let job = job_radiko(init_schedule, "QRR").expect("Failed to create Job");
     sched.add(job).expect("Failed to Add job to cron");
-    let job = job_radiko(&init_schedule, "LFR").expect("Failed to create Job");
+    let job = job_radiko(init_schedule, "LFR").expect("Failed to create Job");
     sched.add(job).expect("Failed to Add job to cron");
 
     //10時でおんせｎと重ならないように
