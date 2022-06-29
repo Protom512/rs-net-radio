@@ -169,6 +169,7 @@ pub fn record() {
             Some(n) => n,
             None => {
                 error!("Not Downloadable. Failed to get Episode Id");
+                error!("{:#?}", &sea.episode);
                 continue;
             }
         };
@@ -228,11 +229,13 @@ pub fn record() {
         let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, &i.name);
         let mut img = std::fs::File::create(&imagefile).unwrap();
         match i.pc_image_url {
-            Some(n) => reqwest::blocking::get(&n)
-                .unwrap()
-                .copy_to(&mut img)
-                .unwrap(),
-
+            Some(n) => match reqwest::blocking::get(&n) {
+                Ok(mut m) => match m.copy_to(&mut img) {
+                    Ok(s) => s,
+                    Err(e) => panic!("{}", e),
+                },
+                Err(e) => panic!("{}", e),
+            },
             None => {
                 error!("Image not downloadable.");
                 continue;
