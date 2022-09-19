@@ -1,3 +1,3 @@
 [workspace]
-members=[ "app", "record-lib"]
+members=[ "app", "record-lib","common"]
 

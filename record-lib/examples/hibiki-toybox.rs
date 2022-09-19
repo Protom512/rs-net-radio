@@ -5,5 +5,5 @@ fn main() {
     set_var("RS_NET_ARCHIVE_PATH", "./Temp");
     hibiki::record();
 
-    println!("{}", hibiki::format_forbidden_char("Fate/Test"));
+    println!("{}", common::format_forbidden_char("Fate/Test"));
 }
