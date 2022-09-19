@@ -61,7 +61,7 @@ impl Ag {
         info!("StartTime: {}", self.start_datetime);
         let path = Path::new(&working_path);
         if path.exists() {
-            dbg!("testign ");
+            "testign ";
         }
         let arg = self.end_datetime - start;
         info!("Duration: {}", arg);
