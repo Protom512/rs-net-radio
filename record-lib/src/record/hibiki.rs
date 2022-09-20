@@ -9,6 +9,7 @@ use serde_json;
 use std::env;
 use std::env::temp_dir;
 // use std::fmt::format;
+use common;
 
 extern crate m3u8_rs;
 extern crate tempdir;
@@ -98,28 +99,6 @@ impl HibikiVideo {
             None => playlist_info.playlist_url,
         }
     }
-}
-
-pub fn format_forbidden_char(filename: &str) -> String {
-    // 禁止文字(半角記号)
-    // let cannot_used_file_name = "\\/:*?`\"><|";
-    // 禁止文字(全角記号)
-    // let used_file_name = "￥／：＊？`”＞＜｜";
-    //TODO motto smart ni yaritai
-    filename
-        .replace('\\', "￥")
-        .replace('/', "／")
-        .replace('\"', "”")
-        .replace(':', "：")
-        .replace('*', "＊")
-        .replace('?', "？")
-        .replace('`', "`")
-        .replace('>', "＞")
-        .replace('<', "＜")
-}
-#[test]
-fn pass_format_char() {
-    assert_eq!(format_forbidden_char("Fate/Test"), "Fate／Test")
 }
 static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
 pub fn record() {
@@ -226,8 +205,11 @@ pub fn record() {
             }
         };
 
-        let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, &i.name);
-        let mut img = std::fs::File::create(&imagefile).unwrap();
+        let imagefile = format!("{}/{}_thumb.jpg", &archive_path, &i.name);
+        let mut img = match std::fs::File::create(&imagefile) {
+            Ok(mut f) => f,
+            Err(e) => panic!("{}", e),
+        };
         match i.pc_image_url {
             Some(ref n) => match reqwest::blocking::get(n) {
                 Ok(mut m) => m.copy_to(&mut img).unwrap(),
@@ -246,7 +228,7 @@ pub fn record() {
         // create file_name
         let filename = format!("{}_{}.mp4", i.name, i.latest_episode_name.unwrap());
         // format characters
-        let filename = format_forbidden_char(filename.as_str());
+        let filename = common::format_forbidden_char(filename.as_str());
         let output_path = format!("{}/{}", archive_path, &filename);
         let working_path = format!("{}/{}", tmpdir, &filename);
 
