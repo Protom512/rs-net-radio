@@ -4,10 +4,17 @@ version = 1
 name = "rust"
 enabled = true
 
+  [analyzers.meta]
+  msrv = "stable"
+
 [[analyzers]]
 name = "docker"
 enabled = true
 
 [[analyzers]]
 name = "secrets"
+enabled = true
+
+[[transformers]]
+name = "rustfmt"
 enabled = true
