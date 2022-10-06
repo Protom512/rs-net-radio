@@ -1,5 +1,5 @@
- // 0.4.14
-use log::{error};
+// 0.4.14
+use log::error;
 pub fn format_forbidden_char(filename: &str) -> String {
     // 禁止文字(半角記号)
     // let cannot_used_file_name = "\\/:*?`\"><|";
