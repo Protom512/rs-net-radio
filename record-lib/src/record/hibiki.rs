@@ -207,7 +207,7 @@ pub fn record() {
 
         let imagefile = format!("{}/{}_thumb.jpg", &archive_path, &i.name);
         let mut img = match std::fs::File::create(&imagefile) {
-            Ok(mut f) => f,
+            Ok(f) => f,
             Err(e) => panic!("{}", e),
         };
         match i.pc_image_url {

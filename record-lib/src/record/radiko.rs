@@ -1,5 +1,5 @@
 use chrono;
-use chrono::{DateTime, Local, NaiveDate, TimeZone};
+use chrono::{DateTime, Local, TimeZone};
 // use http::Uri;
 use log::{debug, error, info};
 use reqwest::blocking::{Client, Response};
@@ -497,20 +497,20 @@ fn false_validate_program_housou_kyushi() {
     assert!(!(prog.validate_program()))
 }
 
-impl ProgDate {
-    fn parse_date(&self) -> NaiveDate {
-        return match NaiveDate::parse_from_str(&*self.value.to_string(), "%Y%m%d") {
-            Ok(m) => m,
-            Err(e) => panic!("{:#?}", e),
-        };
-    }
-}
-#[test]
-fn test_parse_date() {
-    let progdate = ProgDate { value: 20211125 };
-
-    assert_eq!(
-        progdate.parse_date(),
-        NaiveDate::parse_from_str(&*"20211125".to_string(), "%Y%m%d").unwrap()
-    )
-}
+// impl ProgDate {
+//     fn parse_date(&self) -> NaiveDate {
+//         return match NaiveDate::parse_from_str(&*self.value.to_string(), "%Y%m%d") {
+//             Ok(m) => m,
+//             Err(e) => panic!("{:#?}", e),
+//         };
+//     }
+// }
+// #[test]
+// fn test_parse_date() {
+//     let progdate = ProgDate { value: 20211125 };
+//
+//     assert_eq!(
+//         progdate.parse_date(),
+//         NaiveDate::parse_from_str(&*"20211125".to_string(), "%Y%m%d").unwrap()
+//     )
+// }
