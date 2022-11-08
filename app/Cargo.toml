@@ -8,7 +8,7 @@ record-lib= {path="../record-lib"}
 #reqwest = { version = "0.11.4", features = ["blocking","json"] }
 #scraper = "0.12.0"
 #log = "0.4.14"
-env_logger = "0.9.1"
+env_logger = "0.9.3"
 #chrono = "0.4.19"
 tokio= { version = "1.21.2", features = ["full"] }
 tokio-cron-scheduler = "0.5.0"
