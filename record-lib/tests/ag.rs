@@ -22,10 +22,12 @@ fn check_new() {
 }
 #[test]
 fn test_init() {
-    let f = File::open("./ag.html");
-    print!("{:#?}", f);
-    let _resp = Ag::get_html();
-    //assert_eq!(Ag::init())
+    // let f = File::open("./ag.html");
+    // print!("{:#?}", f);
+    // let _resp = Ag::get_html();
+    // //assert_eq!(Ag::init())
+    Ag::init();
+    assert!(true)
 }
 #[test]
 fn fail_record() {
