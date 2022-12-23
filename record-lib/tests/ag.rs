@@ -30,6 +30,7 @@ fn test_init() {
 #[test]
 fn fail_record() {
     // failes
+    std::env::set_var("RS_NET_ARCHIVE_PATH", "./Temp");
     let fakerecord = Ag {
         title: "hoge".to_string(),
         start_datetime: Local::now(),
