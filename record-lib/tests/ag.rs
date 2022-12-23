@@ -1,4 +1,4 @@
-use chrono::Local;
+use chrono::{Local, DateTime, Duration};
 
 extern crate record_lib;
 use record_lib::record::ag::Ag;
@@ -26,4 +26,14 @@ fn test_init() {
     print!("{:#?}", f);
     let _resp = Ag::get_html();
     //assert_eq!(Ag::init())
+}
+#[test]
+fn fail_record(){
+    // failes
+    let  fakerecord=Ag{
+        title: "hoge".to_string(),
+        start_datetime: Local::now(),
+        end_datetime: Local::now() + Duration::seconds(5),
+    };
+    assert!(fakerecord.record().is_err())
 }
