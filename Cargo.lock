@@ -645,7 +645,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15d091887fd4a920417805283b7a838d0dcda68e8d632cd305a4439ee776d1ce"
 dependencies = [
  "chrono",
- "nom 7.1.1",
+ "nom 7.1.2",
 ]
 
 [[package]]
@@ -745,9 +745,9 @@ dependencies = [
 
 [[package]]
 name = "nom"
-version = "7.1.1"
+version = "7.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8903e5a29a317527874d0402f867152a3d21c908bb0b933e416c65e301d4c36"
+checksum = "e5507769c4919c998e69e49c839d9dc6e693ede4cc4290d6ad8b41d4f09c548c"
 dependencies = [
  "memchr",
  "minimal-lexical",
@@ -1149,7 +1149,7 @@ dependencies = [
  "http",
  "log",
  "m3u8-rs",
- "nom 7.1.1",
+ "nom 7.1.2",
  "reqwest",
  "scraper",
  "serde",
