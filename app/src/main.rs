@@ -231,7 +231,7 @@ async fn main() {
     let job = job_hibiki(init_schedule).expect("Failed to create Job");
     sched.add(job).expect("Failed to Add job to cron");
 
-    let _res = match sched.start().await {
+    match sched.start().await {
         Ok(m) => m,
         Err(e) => {
             error!("{}", e);

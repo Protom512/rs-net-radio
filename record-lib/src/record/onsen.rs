@@ -51,10 +51,10 @@ impl OnsenProgram {
     pub fn record(&self) {
         let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
             Ok(n) => {
-                let path = format!("{}/onsen", n);
+                let path = format!("{n}/onsen");
                 debug!("{:#?}", &path);
                 if !Path::new(&path).is_dir() {
-                    match fs::create_dir_all(format!("{}/onsen", n)) {
+                    match fs::create_dir_all(format!("{n}/onsen")) {
                         Ok(m) => debug!("{:?}", m),
                         Err(e) => {
                             error!("{}", e);
@@ -77,17 +77,15 @@ impl OnsenProgram {
         };
 
         for contents in &self.contents {
-            let _res = match &contents.streaming_url {
+            match &contents.streaming_url {
                 Some(n) => {
                     let file_name = format!(
                         "{}_{}.mp4",
                         &self
                             .title
                             .as_str()
-                            .replace(' ', "_")
-                            .replace('　', "_")
-                            .replace('/', "_"),
-                        &contents.title.as_str().replace(' ', "_").replace('/', "_")
+                            .replace([' ', '　', '/'], "_"),
+                        &contents.title.as_str().replace([' ', '/'], "_")
                     );
                     let output_path = format!("{}/{}", tmpdir, &file_name);
                     let archive_file = format!("{}/{}", &archive_path, &file_name);

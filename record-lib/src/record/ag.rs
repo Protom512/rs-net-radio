@@ -26,10 +26,10 @@ impl Ag {
         let start = self.start_datetime + Duration::seconds(-15);
         let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
             Ok(n) => {
-                let path = format!("{}/ag", n);
+                let path = format!("{n}/ag");
                 debug!("{:#?}", &path);
                 if !Path::new(&path).is_dir() {
-                    match fs::create_dir_all(format!("{}/ag", n)) {
+                    match fs::create_dir_all(format!("{n}/ag")) {
                         Ok(m) => debug!("{:?}", m),
                         Err(e) => {
                             error!("{}", e);

@@ -126,8 +126,7 @@ pub fn record() {
     let page = 1;
 
     let res = get_api(&format!(
-        "https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={}",
-        page
+        "https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={page}"
     ));
     let get_result = match res {
         Ok(n) => n,
@@ -197,10 +196,10 @@ pub fn record() {
         // get archive path
         let archive_path = match env::var(RS_NET_ARCHIVE_PATH) {
             Ok(n) => {
-                let path = format!("{}/hibiki", n);
+                let path = format!("{n}/hibiki");
                 debug!("{:#?}", &path);
                 if !Path::new(&path).is_dir() {
-                    match fs::create_dir_all(format!("{}/hibiki", n)) {
+                    match fs::create_dir_all(format!("{n}/hibiki")) {
                         Ok(m) => debug!("{:?}", m),
                         Err(e) => {
                             error!("{}", e);

@@ -166,7 +166,7 @@ impl RecordRadiko {
             .expect("Failed to parse to integer");
         // let end = u8::try_from(keyoffset + key_length).expect("Failed to convert to u8");
         let partial_key = base64::encode(
-            &radiko_authkey_value[keyoffset as usize..(keyoffset + key_length as usize) as usize],
+            &radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)],
         );
         let resp = RecordRadiko::auth2(authtoken, partial_key);
         debug!("{:#?}\n", &resp.text().expect("Failed to get resp body"));
@@ -174,7 +174,7 @@ impl RecordRadiko {
         // get archive path
         let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
             Ok(n) => {
-                let path = format!("{}/radiko", n,);
+                let path = format!("{n}/radiko",);
                 debug!("{:#?}", &path);
                 if !Path::new(&path).is_dir() {
                     match fs::create_dir_all(&path) {
@@ -213,8 +213,7 @@ impl RecordRadiko {
             .arg("+discardcorrupt")
             .arg("-headers")
             .arg(format!(
-                "X-Radiko-Authtoken: {authtoken}",
-                authtoken = authtoken
+                "X-Radiko-Authtoken: {authtoken}"
             ))
             .arg("-y")
             .arg("-i")
@@ -233,7 +232,7 @@ impl RecordRadiko {
 
         if output.status.success() {
             let options = CopyOptions::new();
-            fs_extra::file::move_file(&working_path, &output_path, &options)
+            fs_extra::file::move_file(&working_path, output_path, &options)
                 .expect("Failed to archive file");
         } else {
             error!("{}", converted);
@@ -366,8 +365,7 @@ impl ChStreamingUrl {
     pub fn init(ch: &str) -> ChStreamingUrl {
         let client = Client::new();
         let url = format!(
-            "http://radiko.jp/v2/station/stream_smh_multi/{channel}.xml",
-            channel = ch
+            "http://radiko.jp/v2/station/stream_smh_multi/{ch}.xml"
         );
         //    stream_url=`xmllint --xpath "/urls/url[@areafree='0'][1]/playlist_create_url/text()" ${channel}.xml`
 
@@ -396,8 +394,7 @@ impl ChStreamingUrl {
 pub fn get_program_dom(ch: &str) -> Response {
     let client = Client::new();
     let url = format!(
-        "http://radiko.jp/v2/api/program/station/weekly?station_id={ch}",
-        ch = ch
+        "http://radiko.jp/v2/api/program/station/weekly?station_id={ch}"
     );
     info!("{:#?}", &url);
     match client.get(url).send() {
@@ -411,7 +408,7 @@ pub fn get_program_dom(ch: &str) -> Response {
 }
 impl Program<'_> {
     pub fn parse_time(&self) -> DateTime<Local> {
-        return match Local.datetime_from_str((&self.ft).as_ref(), "%Y%m%d%H%M%S") {
+        return match Local.datetime_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
             Ok(m) => m,
             Err(e) => panic!("{:#?}", e),
         };
@@ -460,7 +457,7 @@ fn pass_auth2() {
         .expect("Failed to parse to integer");
     // let end = u8::try_from(keyoffset + key_length).expect("Failed to convert to u8");
     let partial_key = base64::encode(
-        &radiko_authkey_value[keyoffset as usize..(keyoffset + key_length as usize) as usize],
+        &radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)],
     );
     assert_eq!(
         RecordRadiko::auth2(authtoken, partial_key).status(),
@@ -499,7 +496,7 @@ fn false_validate_program_housou_kyushi() {
 
 impl ProgDate {
     fn parse_date(&self) -> NaiveDate {
-        return match NaiveDate::parse_from_str(&*self.value.to_string(), "%Y%m%d") {
+        return match NaiveDate::parse_from_str(&self.value.to_string(), "%Y%m%d") {
             Ok(m) => m,
             Err(e) => panic!("{:#?}", e),
         };
@@ -511,6 +508,6 @@ fn test_parse_date() {
 
     assert_eq!(
         progdate.parse_date(),
-        NaiveDate::parse_from_str(&*"20211125".to_string(), "%Y%m%d").unwrap()
+        NaiveDate::parse_from_str(&"20211125".to_string(), "%Y%m%d").unwrap()
     )
 }

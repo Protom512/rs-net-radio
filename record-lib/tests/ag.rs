@@ -1,8 +1,8 @@
-use chrono::{DateTime, Duration, Local};
+use chrono::{Duration, Local};
 
 extern crate record_lib;
 use record_lib::record::ag::Ag;
-use std::fs::File;
+
 #[test]
 fn check_connection() {
     assert_eq!(Ag::get_html().status(), http::StatusCode::OK)
