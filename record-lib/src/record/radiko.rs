@@ -165,9 +165,8 @@ impl RecordRadiko {
             .parse()
             .expect("Failed to parse to integer");
         // let end = u8::try_from(keyoffset + key_length).expect("Failed to convert to u8");
-        let partial_key = base64::encode(
-            &radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)],
-        );
+        let partial_key =
+            base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
         let resp = RecordRadiko::auth2(authtoken, partial_key);
         debug!("{:#?}\n", &resp.text().expect("Failed to get resp body"));
 
@@ -212,9 +211,7 @@ impl RecordRadiko {
             .arg("-fflags")
             .arg("+discardcorrupt")
             .arg("-headers")
-            .arg(format!(
-                "X-Radiko-Authtoken: {authtoken}"
-            ))
+            .arg(format!("X-Radiko-Authtoken: {authtoken}"))
             .arg("-y")
             .arg("-i")
             .arg(&self.url)
@@ -364,9 +361,7 @@ impl ChStreamingUrl {
     }
     pub fn init(ch: &str) -> ChStreamingUrl {
         let client = Client::new();
-        let url = format!(
-            "http://radiko.jp/v2/station/stream_smh_multi/{ch}.xml"
-        );
+        let url = format!("http://radiko.jp/v2/station/stream_smh_multi/{ch}.xml");
         //    stream_url=`xmllint --xpath "/urls/url[@areafree='0'][1]/playlist_create_url/text()" ${channel}.xml`
 
         debug!("{:#?}", &url);
@@ -393,9 +388,7 @@ impl ChStreamingUrl {
 }
 pub fn get_program_dom(ch: &str) -> Response {
     let client = Client::new();
-    let url = format!(
-        "http://radiko.jp/v2/api/program/station/weekly?station_id={ch}"
-    );
+    let url = format!("http://radiko.jp/v2/api/program/station/weekly?station_id={ch}");
     info!("{:#?}", &url);
     match client.get(url).send() {
         Ok(m) => m,
@@ -456,9 +449,8 @@ fn pass_auth2() {
         .parse()
         .expect("Failed to parse to integer");
     // let end = u8::try_from(keyoffset + key_length).expect("Failed to convert to u8");
-    let partial_key = base64::encode(
-        &radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)],
-    );
+    let partial_key =
+        base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
     assert_eq!(
         RecordRadiko::auth2(authtoken, partial_key).status(),
         http::StatusCode::OK
