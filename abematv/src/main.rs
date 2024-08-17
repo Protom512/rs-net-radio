@@ -268,8 +268,8 @@ async fn main() {
     // .for_each(|i|  {
         for j in i.slots {
             if j.is_within_day() && j.channel_id.contains("anime") {
-                println!("title {:#?}", j.title);
-                println!(
+                info!("title {:#?}", j.title);
+                info!(
                     "display:https://abema.tv/video/episode/{}",
                     j.display_program_id
                 );
@@ -282,6 +282,7 @@ async fn main() {
                         Ok(m) => m,
                         Err(e) => {
                             error!("{}", e);
+                            debug!("{:#?}",x);
                             panic!("{}", e);
                         }
                     };
@@ -298,6 +299,7 @@ async fn main() {
                                             Ok(m) => m,
                                             Err(e) => {
                                                 error!("{}", e);
+                                                debug!("{:#?}",f);
                                                 panic!("{}", e);
                                             } //TODO id をまseasonごとにまとめる
                                         };
@@ -309,7 +311,7 @@ async fn main() {
                                 }
                             }
                         }
-                        None => println!("{}_s0", series.id),
+                        None => info!("{}_s0", series.id),
                     }
                 }
 
@@ -318,7 +320,7 @@ async fn main() {
 
                 for x in &result_vec {
                     if profile.episode_free_change(x).await {
-                        println!("{}", x);
+                        info!("{}", x);
                     }
                 }
 
