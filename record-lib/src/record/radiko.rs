@@ -329,10 +329,10 @@ pub fn get_program_dom(ch: &str) -> Response {
 }
 impl Program<'_> {
     pub fn parse_time(&self) -> DateTime<Local> {
-        return match Local.datetime_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
+        match Local.datetime_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
             Ok(m) => m,
             Err(e) => panic!("{:#?}", e),
-        };
+        }
     }
     fn validate_program(&self) -> bool {
         if self.title.is_empty()
@@ -415,10 +415,10 @@ fn false_validate_program_housou_kyushi() {
 
 impl ProgDate {
     fn parse_date(&self) -> NaiveDate {
-        return match NaiveDate::parse_from_str(&self.value.to_string(), "%Y%m%d") {
+        match NaiveDate::parse_from_str(&self.value.to_string(), "%Y%m%d") {
             Ok(m) => m,
             Err(e) => panic!("{:#?}", e),
-        };
+        }
     }
 }
 #[test]
@@ -427,6 +427,6 @@ fn test_parse_date() {
 
     assert_eq!(
         progdate.parse_date(),
-        NaiveDate::parse_from_str(&"20211125".to_string(), "%Y%m%d").unwrap()
+        NaiveDate::parse_from_str("20211125", "%Y%m%d").unwrap()
     )
 }

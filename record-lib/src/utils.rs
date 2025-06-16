@@ -1,7 +1,7 @@
-use log::{debug, error};
+use log::debug;
 use std::error::Error as StdError;
 use std::fmt;
-use std::{env, fs, io, path::Path}; // Alias to avoid conflict
+use std::{env, fs, path::Path}; // Alias to avoid conflict
 
 #[derive(Debug)]
 pub enum RecordError {
@@ -64,7 +64,7 @@ impl From<serde_json::Error> for RecordError {
     }
 }
 
-const RS_NET_ARCHIVE_PATH_ENV_VAR: &'static str = "RS_NET_ARCHIVE_PATH";
+const RS_NET_ARCHIVE_PATH_ENV_VAR: &str = "RS_NET_ARCHIVE_PATH";
 
 /// Ensures the archive path for a given service exists and returns it.
 /// The path will be "{RS_NET_ARCHIVE_PATH}/{service_name}".

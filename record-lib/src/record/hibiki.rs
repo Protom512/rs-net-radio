@@ -68,35 +68,6 @@ pub fn get_api(url: &str) -> Result<Response, RecordError> {
         .map_err(RecordError::Reqwest)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use http::StatusCode;
-    use mockito; // Required for StatusCode::OK
-
-    #[test]
-    fn pass_get_api_mocked() {
-        // Renamed
-        let server = mockito::mock("GET", "/") // mockito 0.31 syntax, removed mut
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"status":"ok"}"#)
-            .create();
-
-        match get_api(&mockito::server_url()) {
-            Ok(response) => {
-                assert_eq!(response.status(), StatusCode::OK);
-                assert_eq!(
-                    response.json::<serde_json::Value>().unwrap(),
-                    serde_json::json!({"status":"ok"})
-                );
-            }
-            Err(e) => panic!("get_api_mocked failed: {}", e),
-        }
-        server.assert(); // Verify mock was called (mockito 0.31)
-    }
-}
-
 impl HibikiVideo {
     fn get_m3u8_url(&self) -> Result<String, RecordError> {
         let url = format!(
@@ -279,4 +250,33 @@ pub fn record() -> Result<(), RecordError> {
         })?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::StatusCode;
+    use mockito; // Required for StatusCode::OK
+
+    #[test]
+    fn pass_get_api_mocked() {
+        // Renamed
+        let server = mockito::mock("GET", "/") // mockito 0.31 syntax, removed mut
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"status":"ok"}"#)
+            .create();
+
+        match get_api(&mockito::server_url()) {
+            Ok(response) => {
+                assert_eq!(response.status(), StatusCode::OK);
+                assert_eq!(
+                    response.json::<serde_json::Value>().unwrap(),
+                    serde_json::json!({"status":"ok"})
+                );
+            }
+            Err(e) => panic!("get_api_mocked failed: {}", e),
+        }
+        server.assert(); // Verify mock was called (mockito 0.31)
+    }
 }
