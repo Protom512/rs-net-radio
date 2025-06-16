@@ -17,25 +17,32 @@ use std::{env, fs};
 // #[macro_use]
 // extern crate serde_derive;
 
+/// Represents the overall Radiko data structure.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Radiko<'a> {
     ttl: u32,
     srvtime: u32,
     #[serde(borrow)]
+    /// Holds information about the stations.
     pub stations: Stations<'a>,
 }
 
+/// Represents a collection of stations.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Stations<'a> {
     #[serde(borrow)]
+    /// Holds information about a single station.
     pub station: Station<'a>,
 }
+
+/// Represents a single station.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Station<'a> {
     id: ID,
     #[serde(default)]
     name: Cow<'a, str>,
     #[serde(borrow)]
+    /// Holds the program schedule for the station.
     pub scd: Scd<'a>,
 }
 #[allow(clippy::upper_case_acronyms)]
@@ -46,60 +53,88 @@ enum ID {
     BAYFM78,
 }
 
+/// Represents the program schedule for a station.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Scd<'a> {
     #[serde(borrow)]
+    /// Holds a list of programs.
     pub progs: Vec<Progs<'a>>,
 }
 
+/// Represents a collection of programs.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Progs<'a> {
     #[serde(borrow)]
     #[serde(rename = "$value")]
+    /// Holds a list of program sets, which can be either a date or a program.
     pub list: Vec<Progset<'a>>,
 }
+
+/// Represents either a date or a program in the schedule.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Progset<'a> {
+    /// Represents a date in the schedule.
     Date(ProgDate),
+    /// Represents a program in the schedule.
     #[serde(borrow)]
     Prog(Program<'a>),
 }
+
+/// Represents a date in the program schedule.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ProgDate {
     #[serde(rename = "$value")]
     value: u32,
 }
 
+/// Represents a single program.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Program<'a> {
+    /// Start time of the program (YYYYMMDDHHMMSS).
     pub ft: Cow<'a, str>,
+    /// End time of the program (YYYYMMDDHHMMSS).
     pub to: Cow<'a, str>,
+    /// Start time of the program (HHMM).
     pub ftl: Cow<'a, str>,
+    /// End time of the program (HHMM).
     pub tol: Cow<'a, str>,
+    /// Duration of the program in seconds.
     pub dur: u32,
+    /// Title of the program.
     pub title: Cow<'a, str>,
     // pfm: Option<&'a str>,
 }
+
+/// Represents the streaming URL for a channel.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ChStreamingUrl {
     // #[serde(borrow)]
     #[serde(rename = "$value")]
     list: Vec<Urlset>,
 }
+
+/// Represents a set of URLs, typically for streaming.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Urlset {
     // #[serde(borrow)]
+    /// Represents a streaming URL.
     Url(StreamingUrl),
 }
+
+/// Represents a streaming URL with area restriction information.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct StreamingUrl {
+    /// Indicates if the stream is area-free (0 for false, 1 for true).
     pub areafree: u8,
+    /// The URL for creating the playlist.
     pub playlist_create_url: String,
     // media_url_path: String,
     // playlist_url_path: String,
 }
+
+/// Represents a Radiko recording task.
 #[derive(Debug, PartialEq)]
 pub struct RecordRadiko {
     title: String,
@@ -108,6 +143,15 @@ pub struct RecordRadiko {
     url: String,
 }
 impl RecordRadiko {
+    /// Initializes a list of `RecordRadiko` tasks for a given channel.
+    ///
+    /// # Arguments
+    ///
+    /// * `ch` - The channel ID (e.g., "QRR", "LFR").
+    ///
+    /// # Returns
+    ///
+    /// A vector of `RecordRadiko` tasks.
     pub fn init(ch: &str) -> Vec<Self> {
         let radiko = Radiko::init(ch);
         let streaming_url = ChStreamingUrl::init(ch);
@@ -139,6 +183,13 @@ impl RecordRadiko {
         hoge
     }
     const RS_NET_ARCHIVE_PATH: &'static str = "RS_NET_ARCHIVE_PATH";
+    /// Downloads the Radiko program.
+    ///
+    /// This function performs the authentication steps and then uses ffmpeg to download the stream.
+    ///
+    /// # Returns
+    ///
+    /// The exit status of the ffmpeg command.
     pub fn download(&self) -> ExitStatus {
         let resp = RecordRadiko::auth1();
         let header_str = resp.headers();
@@ -236,6 +287,16 @@ impl RecordRadiko {
         }
         output.status
     }
+
+    /// Formats a filename to replace characters that are forbidden in filenames.
+    ///
+    /// # Arguments
+    ///
+    /// * `filename` - The original filename.
+    ///
+    /// # Returns
+    ///
+    /// A new string with forbidden characters replaced.
     pub fn format_forbidden_char(filename: &str) -> String {
         // 禁止文字(半角記号)
         // let cannot_used_file_name = "\\/:*?`\"><|";
@@ -319,6 +380,15 @@ impl RecordRadiko {
 }
 
 impl Radiko<'_> {
+    /// Initializes Radiko data for a given channel.
+    ///
+    /// # Arguments
+    ///
+    /// * `ch` - The channel ID (e.g., "QRR", "LFR").
+    ///
+    /// # Returns
+    ///
+    /// A `Radiko` struct containing station and program information.
     pub fn init(ch: &str) -> Self {
         let m = get_program_dom(ch);
         let radiko: Radiko = match from_str(match &m.text() {
@@ -341,6 +411,17 @@ impl Radiko<'_> {
 }
 
 impl ChStreamingUrl {
+    /// Gets the streaming URL from the `ChStreamingUrl` struct.
+    ///
+    /// It iterates through the list of URLs and returns the first area-free M3U8 playlist URL.
+    ///
+    /// # Returns
+    ///
+    /// The streaming URL as a string.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no suitable streaming URL is found.
     pub fn get_streaming_url(&self) -> String {
         debug!("{:#?}", self.list);
         for i in &self.list[0..1] {
@@ -359,6 +440,16 @@ impl ChStreamingUrl {
 
         //url.to_string()
     }
+
+    /// Initializes `ChStreamingUrl` for a given channel.
+    ///
+    /// # Arguments
+    ///
+    /// * `ch` - The channel ID (e.g., "QRR", "LFR").
+    ///
+    /// # Returns
+    ///
+    /// A `ChStreamingUrl` struct containing streaming URL information.
     pub fn init(ch: &str) -> ChStreamingUrl {
         let client = Client::new();
         let url = format!("http://radiko.jp/v2/station/stream_smh_multi/{ch}.xml");
@@ -386,6 +477,16 @@ impl ChStreamingUrl {
         }
     }
 }
+
+/// Fetches the program DOM for a given channel.
+///
+/// # Arguments
+///
+/// * `ch` - The channel ID (e.g., "QRR", "LFR").
+///
+/// # Returns
+///
+/// A `reqwest::blocking::Response` containing the program DOM.
 pub fn get_program_dom(ch: &str) -> Response {
     let client = Client::new();
     let url = format!("http://radiko.jp/v2/api/program/station/weekly?station_id={ch}");
@@ -400,6 +501,15 @@ pub fn get_program_dom(ch: &str) -> Response {
     }
 }
 impl Program<'_> {
+    /// Parses the program's start time string into a `DateTime<Local>` object.
+    ///
+    /// # Returns
+    ///
+    /// A `DateTime<Local>` representation of the program's start time.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the time string cannot be parsed.
     pub fn parse_time(&self) -> DateTime<Local> {
         return match Local.datetime_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
             Ok(m) => m,

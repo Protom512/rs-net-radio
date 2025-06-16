@@ -43,15 +43,31 @@ struct HibikiEpisode {
     episode: Option<HibikiEpisodeId>,
 }
 
+/// Represents the JSON structure for a Hibiki radio program.
 #[derive(Deserialize, Debug)]
 pub struct HibikiJson {
+    /// The access ID of the program.
     access_id: String,
     //cast: String,
+    /// The ID of the latest episode.
     latest_episode_id: Option<u32>,
+    /// The name of the latest episode.
     latest_episode_name: Option<String>,
+    /// The URL of the program's PC image.
     pc_image_url: Option<String>,
+    /// The name of the program.
     name: String,
 }
+
+/// Fetches data from the Hibiki API.
+///
+/// # Arguments
+///
+/// * `url` - The API endpoint URL.
+///
+/// # Returns
+///
+/// A `reqwest::Result` containing the API response.
 pub fn get_api(url: &str) -> reqwest::Result<Response> {
     let client = reqwest::blocking::Client::new();
 
@@ -100,6 +116,15 @@ impl HibikiVideo {
     }
 }
 
+/// Formats a filename to replace characters that are forbidden in filenames.
+///
+/// # Arguments
+///
+/// * `filename` - The original filename.
+///
+/// # Returns
+///
+/// A new string with forbidden characters replaced.
 pub fn format_forbidden_char(filename: &str) -> String {
     // 禁止文字(半角記号)
     // let cannot_used_file_name = "\\/:*?`\"><|";
@@ -122,6 +147,11 @@ fn pass_format_char() {
     assert_eq!(format_forbidden_char("Fate/Test"), "Fate／Test")
 }
 static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
+
+/// Records Hibiki radio programs.
+///
+/// This function fetches the list of programs, checks for new episodes,
+/// and downloads them using ffmpeg.
 pub fn record() {
     let page = 1;
 
