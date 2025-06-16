@@ -1,8 +1,8 @@
 // use core::panicking::panic;
+use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
 use log; // 0.4.14
 use log::{debug, error, info, warn};
 use reqwest; // 0.11.4
-use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
 use reqwest::blocking::Response;
 use reqwest::header::{ORIGIN, USER_AGENT};
 use serde::Deserialize;
@@ -53,7 +53,8 @@ pub struct HibikiJson {
     pc_image_url: Option<String>,
     name: String,
 }
-pub fn get_api(url: &str) -> Result<Response, RecordError> { // Changed from reqwest::Result
+pub fn get_api(url: &str) -> Result<Response, RecordError> {
+    // Changed from reqwest::Result
     let client = reqwest::blocking::Client::new();
     client
         .get(url)
@@ -70,11 +71,12 @@ pub fn get_api(url: &str) -> Result<Response, RecordError> { // Changed from req
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockito;
-    use http::StatusCode; // Required for StatusCode::OK
+    use http::StatusCode;
+    use mockito; // Required for StatusCode::OK
 
     #[test]
-    fn pass_get_api_mocked() { // Renamed
+    fn pass_get_api_mocked() {
+        // Renamed
         let server = mockito::mock("GET", "/") // mockito 0.31 syntax, removed mut
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -84,7 +86,10 @@ mod tests {
         match get_api(&mockito::server_url()) {
             Ok(response) => {
                 assert_eq!(response.status(), StatusCode::OK);
-                assert_eq!(response.json::<serde_json::Value>().unwrap(), serde_json::json!({"status":"ok"}));
+                assert_eq!(
+                    response.json::<serde_json::Value>().unwrap(),
+                    serde_json::json!({"status":"ok"})
+                );
             }
             Err(e) => panic!("get_api_mocked failed: {}", e),
         }
@@ -116,15 +121,21 @@ impl HibikiVideo {
 pub fn record() -> Result<(), RecordError> {
     let page = 1;
 
-    let get_result = get_api(&format!( // Use ?
+    let get_result = get_api(&format!(
+        // Use ?
         "https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={page}"
     ))?;
     let program_list_text = get_result.text().map_err(RecordError::Reqwest)?;
-    let programs: Vec<HibikiJson> = serde_json::from_str(&program_list_text).map_err(RecordError::SerdeJson)?;
+    let programs: Vec<HibikiJson> =
+        serde_json::from_str(&program_list_text).map_err(RecordError::SerdeJson)?;
 
-    for i in programs { // Changed 'sea' to 'programs'
+    for i in programs {
+        // Changed 'sea' to 'programs'
         debug!("{:?}", i);
-        let episode_response = match get_api(&format!("https://vcms-api.hibiki-radio.jp/api/v1/programs/{}", i.access_id)) {
+        let episode_response = match get_api(&format!(
+            "https://vcms-api.hibiki-radio.jp/api/v1/programs/{}",
+            i.access_id
+        )) {
             Ok(n) => n,
             Err(e) => {
                 error!("API error for program {} ({}): {}", i.name, i.access_id, e);
@@ -134,11 +145,15 @@ pub fn record() -> Result<(), RecordError> {
         let episode_text = match episode_response.text() {
             Ok(t) => t,
             Err(e) => {
-                error!("Failed to get text for episode details of {}: {}", i.name, e);
+                error!(
+                    "Failed to get text for episode details of {}: {}",
+                    i.name, e
+                );
                 continue;
             }
         };
-        let episode_data: HibikiEpisode = match serde_json::from_str(&episode_text) { // Changed 'sea' to 'episode_data'
+        let episode_data: HibikiEpisode = match serde_json::from_str(&episode_text) {
+            // Changed 'sea' to 'episode_data'
             Ok(d) => d,
             Err(e) => {
                 error!("Failed to parse episode details for {}: {}", i.name, e);
@@ -146,7 +161,8 @@ pub fn record() -> Result<(), RecordError> {
             }
         };
 
-        let episode = match &episode_data.episode { // Changed 'sea' to 'episode_data'
+        let episode = match &episode_data.episode {
+            // Changed 'sea' to 'episode_data'
             Some(n) => n,
             None => {
                 error!("Not Downloadable. Failed to get Episode Id for {}", i.name);
@@ -154,8 +170,12 @@ pub fn record() -> Result<(), RecordError> {
             }
         };
 
-        let latest_id = i.latest_episode_id.ok_or_else(|| RecordError::Other(format!("Missing latest_episode_id for {}", i.name)))?;
-        let episode_name = i.latest_episode_name.clone().ok_or_else(|| RecordError::Other(format!("Missing latest_episode_name for {}", i.name)))?;
+        let latest_id = i.latest_episode_id.ok_or_else(|| {
+            RecordError::Other(format!("Missing latest_episode_id for {}", i.name))
+        })?;
+        let episode_name = i.latest_episode_name.clone().ok_or_else(|| {
+            RecordError::Other(format!("Missing latest_episode_name for {}", i.name))
+        })?;
 
         if latest_id != episode.id {
             error!(
@@ -186,7 +206,6 @@ pub fn record() -> Result<(), RecordError> {
 
         let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
         info!("working path: {}", tmpdir);
-
 
         let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, &i.name);
         let mut img = std::fs::File::create(&imagefile)?;
@@ -247,7 +266,7 @@ pub fn record() -> Result<(), RecordError> {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             error!("ffmpeg failed for {}: {}", i.name, stderr);
-            return Err(RecordError::CommandFailed{
+            return Err(RecordError::CommandFailed {
                 command: "ffmpeg".to_string(),
                 exit_code: output.status.code(),
                 stderr,
@@ -255,8 +274,9 @@ pub fn record() -> Result<(), RecordError> {
         }
 
         let options = CopyOptions::new();
-        fs_extra::file::move_file(&working_path, &output_path, &options)
-            .map_err(|e| RecordError::Other(format!("Failed to move file for {}: {}", i.name, e)))?;
+        fs_extra::file::move_file(&working_path, &output_path, &options).map_err(|e| {
+            RecordError::Other(format!("Failed to move file for {}: {}", i.name, e))
+        })?;
     }
     Ok(())
 }

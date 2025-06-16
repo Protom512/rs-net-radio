@@ -1,8 +1,8 @@
 use chrono;
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
 // use http::Uri;
-use log::{debug, error, info};
 use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
+use log::{debug, error, info};
 use reqwest::blocking::{Client, Response};
 use serde::{Deserialize, Serialize};
 // use serde_json::to_string;
@@ -140,7 +140,8 @@ impl RecordRadiko {
         hoge
     }
 
-    pub fn download(&self) -> Result<ExitStatus, RecordError> { // Changed signature
+    pub fn download(&self) -> Result<ExitStatus, RecordError> {
+        // Changed signature
         let resp = RecordRadiko::auth1()?; // Propagate error from auth1
         let header_str = resp.headers();
 
@@ -157,16 +158,18 @@ impl RecordRadiko {
             .ok_or_else(|| RecordError::Other("Missing X-Radiko-Keylength header".to_string()))?
             .to_str()
             .map_err(|e| RecordError::Other(format!("Invalid X-Radiko-Keylength header: {}", e)))?;
-        let key_length: u8 = key_length_str.parse()
-            .map_err(|e| RecordError::Other(format!("Failed to parse X-Radiko-Keylength: {}", e)))?;
+        let key_length: u8 = key_length_str.parse().map_err(|e| {
+            RecordError::Other(format!("Failed to parse X-Radiko-Keylength: {}", e))
+        })?;
 
         let keyoffset_str = header_str
             .get("x-radiko-keyoffset")
             .ok_or_else(|| RecordError::Other("Missing X-Radiko-Keyoffset header".to_string()))?
             .to_str()
             .map_err(|e| RecordError::Other(format!("Invalid X-Radiko-Keyoffset header: {}", e)))?;
-        let keyoffset: usize = keyoffset_str.parse()
-            .map_err(|e| RecordError::Other(format!("Failed to parse X-Radiko-Keyoffset: {}", e)))?;
+        let keyoffset: usize = keyoffset_str.parse().map_err(|e| {
+            RecordError::Other(format!("Failed to parse X-Radiko-Keyoffset: {}", e))
+        })?;
 
         let partial_key =
             base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
@@ -209,7 +212,7 @@ impl RecordRadiko {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             error!("ffmpeg failed for {}: {}", self.title, stderr);
-            return Err(RecordError::CommandFailed{
+            return Err(RecordError::CommandFailed {
                 command: "ffmpeg".to_string(),
                 exit_code: output.status.code(),
                 stderr,
@@ -217,13 +220,15 @@ impl RecordRadiko {
         }
 
         let options = CopyOptions::new();
-        fs_extra::file::move_file(&working_path, &output_path, &options)
-            .map_err(|e| RecordError::Other(format!("Failed to move file for {}: {}", self.title, e)))?;
+        fs_extra::file::move_file(&working_path, &output_path, &options).map_err(|e| {
+            RecordError::Other(format!("Failed to move file for {}: {}", self.title, e))
+        })?;
 
         Ok(output.status)
     }
 
-    fn auth1() -> Result<Response, RecordError> { // Changed signature
+    fn auth1() -> Result<Response, RecordError> {
+        // Changed signature
         let client = Client::new();
         let url = "https://radiko.jp/v2/api/auth1";
         Ok(client
@@ -235,7 +240,8 @@ impl RecordRadiko {
             .header("X-Radiko-Device", "pc")
             .send()?) // Propagate error
     }
-    fn auth2(token: &str, partial_key: String) -> Result<Response, RecordError> { // Changed signature
+    fn auth2(token: &str, partial_key: String) -> Result<Response, RecordError> {
+        // Changed signature
         let client = Client::new();
         let url = "https://radiko.jp/v2/api/auth2";
         Ok(client
@@ -253,9 +259,7 @@ impl Radiko<'_> {
     pub fn init(ch: &str) -> Self {
         let m = get_program_dom(ch);
         let radiko: Radiko = match from_str(match &m.text() {
-            Ok(l) => {
-                l
-            }
+            Ok(l) => l,
             Err(e) => {
                 panic!("{:#?}", e);
             }
@@ -342,7 +346,10 @@ impl Program<'_> {
 }
 #[test]
 fn pass_auth1() {
-    assert_eq!(RecordRadiko::auth1().unwrap().status(), http::StatusCode::OK)
+    assert_eq!(
+        RecordRadiko::auth1().unwrap().status(),
+        http::StatusCode::OK
+    )
 }
 
 #[test]
@@ -374,7 +381,9 @@ fn pass_auth2() {
     let partial_key =
         base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
     assert_eq!(
-        RecordRadiko::auth2(authtoken, partial_key).unwrap().status(),
+        RecordRadiko::auth2(authtoken, partial_key)
+            .unwrap()
+            .status(),
         http::StatusCode::OK
     )
 }

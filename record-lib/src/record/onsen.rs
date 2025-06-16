@@ -1,8 +1,8 @@
+use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
 use fs_extra;
 use fs_extra::file::CopyOptions;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
 use std::env::temp_dir;
 // use std::fs; // Removed
 use std::path::Path;
@@ -47,7 +47,8 @@ pub struct OnsenProgram {
     // "updated"
 }
 impl OnsenProgram {
-    pub fn record(&self) -> Result<(), RecordError> { // Changed signature
+    pub fn record(&self) -> Result<(), RecordError> {
+        // Changed signature
         let archive_path = ensure_archive_path("onsen")?;
 
         let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
@@ -89,7 +90,10 @@ impl OnsenProgram {
 
                     if !output.status.success() {
                         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                        error!("ffmpeg failed for {} - {}: {}", self.title, contents.title, stderr);
+                        error!(
+                            "ffmpeg failed for {} - {}: {}",
+                            self.title, contents.title, stderr
+                        );
                         // Continue to next content on failure, or return Err?
                         // For now, mimicking original by continuing, but logging error.
                         // If this should halt, use:
@@ -106,7 +110,13 @@ impl OnsenProgram {
                         &output_path,
                         format!("{}/{}", archive_path, &file_name),
                         &options,
-                    ).map_err(|e| RecordError::Other(format!("Failed to move file for {} - {}: {}", self.title, contents.title, e)))?;
+                    )
+                    .map_err(|e| {
+                        RecordError::Other(format!(
+                            "Failed to move file for {} - {}: {}",
+                            self.title, contents.title, e
+                        ))
+                    })?;
                 }
                 None => warn!(
                     "streaming url is null for {},{}",

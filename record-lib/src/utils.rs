@@ -1,7 +1,7 @@
-use std::{env, fs, path::Path, io};
 use log::{debug, error};
+use std::error::Error as StdError;
 use std::fmt;
-use std::error::Error as StdError; // Alias to avoid conflict
+use std::{env, fs, io, path::Path}; // Alias to avoid conflict
 
 #[derive(Debug)]
 pub enum RecordError {
@@ -10,7 +10,11 @@ pub enum RecordError {
     Reqwest(reqwest::Error),
     SerdeJson(serde_json::Error),
     // SerdeXml(serde_xml_rs::Error), // Add if direct usage occurs
-    CommandFailed{ command: String, exit_code: Option<i32>, stderr: String },
+    CommandFailed {
+        command: String,
+        exit_code: Option<i32>,
+        stderr: String,
+    },
     TempDir,
     Other(String),
 }
@@ -22,8 +26,15 @@ impl fmt::Display for RecordError {
             RecordError::EnvVar(e) => write!(f, "Environment variable error: {}", e),
             RecordError::Reqwest(e) => write!(f, "Reqwest error: {}", e),
             RecordError::SerdeJson(e) => write!(f, "Serde JSON error: {}", e),
-            RecordError::CommandFailed{ command, exit_code, stderr } =>
-                write!(f, "Command '{}' failed with code {:?}. Stderr: {}", command, exit_code, stderr),
+            RecordError::CommandFailed {
+                command,
+                exit_code,
+                stderr,
+            } => write!(
+                f,
+                "Command '{}' failed with code {:?}. Stderr: {}",
+                command, exit_code, stderr
+            ),
             RecordError::TempDir => write!(f, "Failed to get temporary directory path"),
             RecordError::Other(s) => write!(f, "Other error: {}", s),
         }
@@ -33,16 +44,24 @@ impl fmt::Display for RecordError {
 impl StdError for RecordError {}
 
 impl From<std::io::Error> for RecordError {
-    fn from(err: std::io::Error) -> RecordError { RecordError::Io(err) }
+    fn from(err: std::io::Error) -> RecordError {
+        RecordError::Io(err)
+    }
 }
 impl From<std::env::VarError> for RecordError {
-    fn from(err: std::env::VarError) -> RecordError { RecordError::EnvVar(err) }
+    fn from(err: std::env::VarError) -> RecordError {
+        RecordError::EnvVar(err)
+    }
 }
 impl From<reqwest::Error> for RecordError {
-    fn from(err: reqwest::Error) -> RecordError { RecordError::Reqwest(err) }
+    fn from(err: reqwest::Error) -> RecordError {
+        RecordError::Reqwest(err)
+    }
 }
 impl From<serde_json::Error> for RecordError {
-    fn from(err: serde_json::Error) -> RecordError { RecordError::SerdeJson(err) }
+    fn from(err: serde_json::Error) -> RecordError {
+        RecordError::SerdeJson(err)
+    }
 }
 
 const RS_NET_ARCHIVE_PATH_ENV_VAR: &'static str = "RS_NET_ARCHIVE_PATH";
@@ -83,12 +102,18 @@ mod tests {
 
     #[test]
     fn test_sanitize_filename_basic() {
-        assert_eq!(sanitize_filename("Fate/Test: *?\"<>|`"), "Fate／Test： ＊？”＜＞｜`");
+        assert_eq!(
+            sanitize_filename("Fate/Test: *?\"<>|`"),
+            "Fate／Test： ＊？”＜＞｜`"
+        );
     }
 
     #[test]
     fn test_sanitize_filename_no_forbidden_chars() {
-        assert_eq!(sanitize_filename("Normal_Filename_123.mp4"), "Normal_Filename_123.mp4");
+        assert_eq!(
+            sanitize_filename("Normal_Filename_123.mp4"),
+            "Normal_Filename_123.mp4"
+        );
     }
 
     #[test]

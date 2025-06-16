@@ -1,9 +1,9 @@
+use crate::utils::{ensure_archive_path, RecordError};
 use chrono::{Date, DateTime, Duration, Local};
 use fs_extra;
 use fs_extra::file::CopyOptions;
 use log::{error, info};
-use std::env::temp_dir;
-use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
+use std::env::temp_dir; // Added RecordError
 
 use std::fmt::Debug;
 use std::path::Path;
@@ -75,10 +75,10 @@ impl Ag {
 
         let status = status_result?; // Propagates io::Error
         if !status.success() {
-            return Err(RecordError::CommandFailed{
+            return Err(RecordError::CommandFailed {
                 command: "streamlink".to_string(),
                 exit_code: status.code(),
-                stderr: "Streamlink execution failed, no stderr captured by .status()".to_string()
+                stderr: "Streamlink execution failed, no stderr captured by .status()".to_string(),
             });
         }
 
@@ -90,7 +90,8 @@ impl Ag {
             &working_path,
             format!("{}/{}", archive_path, &file_name),
             &options,
-        ).map_err(|e| RecordError::Other(format!("Failed to move file: {}", e)))?; // Simplified fs_extra error mapping
+        )
+        .map_err(|e| RecordError::Other(format!("Failed to move file: {}", e)))?; // Simplified fs_extra error mapping
 
         Ok(status)
     }
@@ -157,16 +158,15 @@ impl Ag {
     }
 
     pub fn init() -> Vec<Ag> {
-        match get_html_from_url(AG_PROGRAM_URL) { // Call the new function
-            Ok(response) => {
-                match response.text() {
-                    Ok(text) => Ag::html_parse(&text),
-                    Err(e) => {
-                        error!("Failed to get text from HTTP response: {}", e);
-                        Vec::new()
-                    }
+        match get_html_from_url(AG_PROGRAM_URL) {
+            // Call the new function
+            Ok(response) => match response.text() {
+                Ok(text) => Ag::html_parse(&text),
+                Err(e) => {
+                    error!("Failed to get text from HTTP response: {}", e);
+                    Vec::new()
                 }
-            }
+            },
             Err(e) => {
                 error!("Failed to get HTML for A&G: {}", e);
                 Vec::new()

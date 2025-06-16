@@ -28,25 +28,35 @@ fn job_radiko(init_schedule: &str, ch: &'static str) -> Result<Job, Box<dyn Erro
                     let schedule = format!(
                         "{} {} {} {} {} * {}",
                         radiko.ft.with_timezone(&Utc).second(),
-                    radiko.ft.with_timezone(&Utc).minute(),
-                    radiko.ft.with_timezone(&Utc).hour(),
-                    radiko.ft.with_timezone(&Utc).day(),
-                    radiko.ft.with_timezone(&Utc).month(),
+                        radiko.ft.with_timezone(&Utc).minute(),
+                        radiko.ft.with_timezone(&Utc).hour(),
+                        radiko.ft.with_timezone(&Utc).day(),
+                        radiko.ft.with_timezone(&Utc).month(),
                         radiko.ft.with_timezone(&Utc).year()
                     );
                     let radiko_clone = radiko.clone(); // Clone for the closure
-                    let job = Job::new(schedule.as_str(), move |_uuid2, _l2| { // Used .as_str()
+                    let job = Job::new(schedule.as_str(), move |_uuid2, _l2| {
+                        // Used .as_str()
                         info!("Executing Radiko record for: {}", radiko_clone.title);
                         match radiko_clone.download() {
                             Ok(status) => {
                                 if status.success() {
-                                    info!("Radiko Record successful for {}: {}", radiko_clone.title, status);
+                                    info!(
+                                        "Radiko Record successful for {}: {}",
+                                        radiko_clone.title, status
+                                    );
                                 } else {
-                                    error!("Radiko Record command failed for {}: {}", radiko_clone.title, status);
+                                    error!(
+                                        "Radiko Record command failed for {}: {}",
+                                        radiko_clone.title, status
+                                    );
                                 }
                             }
                             Err(e) => {
-                                error!("Radiko Record execution error for {}: {}", radiko_clone.title, e);
+                                error!(
+                                    "Radiko Record execution error for {}: {}",
+                                    radiko_clone.title, e
+                                );
                             }
                         }
                     })
@@ -56,7 +66,8 @@ fn job_radiko(init_schedule: &str, ch: &'static str) -> Result<Job, Box<dyn Erro
             }
             let _res = record_sched.start().await;
         });
-    }).map_err(Box::from)
+    })
+    .map_err(Box::from)
 }
 fn job_ag(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
     info!("running job_ag");
@@ -74,21 +85,28 @@ fn job_ag(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
                     let schedule = format!(
                         "{} {} {} {} {} * {}",
                         start.with_timezone(&Utc).second(),
-                    start.with_timezone(&Utc).minute(),
-                    start.with_timezone(&Utc).hour(),
-                    start.with_timezone(&Utc).day(),
-                    start.with_timezone(&Utc).month(),
+                        start.with_timezone(&Utc).minute(),
+                        start.with_timezone(&Utc).hour(),
+                        start.with_timezone(&Utc).day(),
+                        start.with_timezone(&Utc).month(),
                         start.with_timezone(&Utc).year()
                     );
                     let ag_clone = ag.clone();
                     let job = Job::new(schedule.as_str(), move |_uuid2, _l2| {
                         info!("Executing AG record for: {}", ag_clone.title);
-                        match ag_clone.clone().record() { // Added clone here
+                        match ag_clone.clone().record() {
+                            // Added clone here
                             Ok(status) => {
                                 if status.success() {
-                                    info!("AG Record successful for {}: {}", ag_clone.title, status);
+                                    info!(
+                                        "AG Record successful for {}: {}",
+                                        ag_clone.title, status
+                                    );
                                 } else {
-                                    error!("AG Record command failed for {}: {}", ag_clone.title, status);
+                                    error!(
+                                        "AG Record command failed for {}: {}",
+                                        ag_clone.title, status
+                                    );
                                 }
                             }
                             Err(e) => {
@@ -102,7 +120,8 @@ fn job_ag(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
             }
             let _res = record_sched.start().await;
         });
-    }).map_err(Box::from)
+    })
+    .map_err(Box::from)
 }
 
 fn job_onsen(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
@@ -117,11 +136,15 @@ fn job_onsen(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
                     info!("Onsen Record successful for {}", onsen_program.title);
                 }
                 Err(e) => {
-                    error!("Onsen Record execution error for {}: {}", onsen_program.title, e);
+                    error!(
+                        "Onsen Record execution error for {}: {}",
+                        onsen_program.title, e
+                    );
                 }
             }
         }
-    }).map_err(Box::from) // Added error mapping
+    })
+    .map_err(Box::from) // Added error mapping
 }
 
 fn job_hibiki(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
@@ -137,7 +160,8 @@ fn job_hibiki(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
                 error!("Hibiki Record execution error: {}", e);
             }
         }
-    }).map_err(Box::from) // Added error mapping
+    })
+    .map_err(Box::from) // Added error mapping
 }
 
 #[tokio::main]
@@ -195,12 +219,11 @@ async fn main() {
             current_shot.with_timezone(&Utc).year()
         );
 
-                let job = job_ag(schedule.as_str()).unwrap();
+        let job = job_ag(schedule.as_str()).unwrap();
         sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
     }
-            let job = job_ag(init_schedule_str).unwrap();
+    let job = job_ag(init_schedule_str).unwrap();
     sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-
 
     if current_time.timestamp() > init_dt.timestamp() {
         let current_shot = current_time + Duration::seconds(3);
@@ -214,13 +237,13 @@ async fn main() {
             current_shot.with_timezone(&Utc).year()
         );
 
-                let job = job_onsen(schedule.as_str()).expect("Failed to create Job");
+        let job = job_onsen(schedule.as_str()).expect("Failed to create Job");
         sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
     }
 
-            let job = job_onsen(init_schedule_str).expect("Failed to create Job");
+    let job = job_onsen(init_schedule_str).expect("Failed to create Job");
     sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-    //radiko
+                                                              //radiko
 
     if current_time.timestamp() > init_dt.timestamp() {
         let current_shot = current_time + Duration::seconds(3);
@@ -234,20 +257,20 @@ async fn main() {
             current_shot.with_timezone(&Utc).year()
         );
 
-                let job = job_radiko(schedule.as_str(), "QRR").expect("Failed to create Job");
+        let job = job_radiko(schedule.as_str(), "QRR").expect("Failed to create Job");
         sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-                let job = job_radiko(schedule.as_str(), "LFR").expect("Failed to create Job");
+        let job = job_radiko(schedule.as_str(), "LFR").expect("Failed to create Job");
         sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
     }
 
-            let job = job_radiko(init_schedule_str, "QRR").expect("Failed to create Job");
+    let job = job_radiko(init_schedule_str, "QRR").expect("Failed to create Job");
     sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-            let job = job_radiko(init_schedule_str, "LFR").expect("Failed to create Job");
+    let job = job_radiko(init_schedule_str, "LFR").expect("Failed to create Job");
     sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
 
     //10時でおんせｎと重ならないように
 
-            let init_hibiki_schedule_str = "00 00 01 * * * *";
+    let init_hibiki_schedule_str = "00 00 01 * * * *";
 
     if current_time.timestamp() > init_dt.timestamp() {
         let current_shot = current_time + Duration::seconds(3);
@@ -261,14 +284,14 @@ async fn main() {
             current_shot.with_timezone(&Utc).year()
         );
 
-                let job = job_hibiki(schedule.as_str()).expect("Failed to create Job");
+        let job = job_hibiki(schedule.as_str()).expect("Failed to create Job");
         sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
     }
 
-            let job = job_hibiki(init_hibiki_schedule_str).expect("Failed to create Job");
+    let job = job_hibiki(init_hibiki_schedule_str).expect("Failed to create Job");
     sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
 
-            match sched.start().await {
+    match sched.start().await {
         Ok(m) => m,
         Err(e) => {
             error!("{}", e);
