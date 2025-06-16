@@ -1,13 +1,32 @@
 use chrono::{Duration, Local, TimeZone}; // Added TimeZone for and_hms_opt
 use std::fs;
+use mockito; // Added mockito
 
 extern crate record_lib;
-use record_lib::record::ag::Ag;
+use record_lib::record::ag::{Ag, get_html_from_url}; // Added get_html_from_url
 
 #[test]
-fn check_connection() {
-    assert_eq!(Ag::get_html().status(), http::StatusCode::OK)
+fn check_connection_mocked() {
+    // For mockito 0.31, mocking is global. The path should be absolute.
+    let mock_path = "/test_get_html";
+    let _m = mockito::mock("GET", mock_path)
+        .with_status(200)
+        .with_header("content-type", "text/html")
+        .with_body("mocked html content")
+        .create();
+
+    let full_mock_url = format!("{}{}", mockito::server_url(), mock_path);
+
+    match get_html_from_url(&full_mock_url) {
+        Ok(response) => {
+            assert_eq!(response.status(), http::StatusCode::OK);
+            assert_eq!(response.text().unwrap(), "mocked html content");
+        }
+        Err(e) => panic!("get_html_from_url failed: {}", e),
+    }
+    // _m.assert(); // .assert() is available on the mock guard in 0.31
 }
+
 #[test]
 fn check_new() {
     let title = "hoge";

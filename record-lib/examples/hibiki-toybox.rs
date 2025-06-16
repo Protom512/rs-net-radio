@@ -4,7 +4,7 @@ use std::env::set_var;
 
 fn main() {
     set_var("RS_NET_ARCHIVE_PATH", "./Temp");
-    hibiki::record();
+    let _ = hibiki::record(); // Address unused_must_use
 
-    println!("{}", sanitize_filename("Fate/Test")); // Use sanitize_filename
+    println!("{}", sanitize_filename("Fate/Test"));
 }

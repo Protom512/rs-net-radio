@@ -1,9 +1,8 @@
 use fs_extra;
 use fs_extra::file::CopyOptions;
-use log::{error, info, warn}; // Removed debug
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-// use std::env; // Removed
-use crate::utils::ensure_archive_path;
+use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
 use std::env::temp_dir;
 // use std::fs; // Removed
 use std::path::Path;
@@ -48,20 +47,11 @@ pub struct OnsenProgram {
     // "updated"
 }
 impl OnsenProgram {
-    pub fn record(&self) {
-        let archive_path = ensure_archive_path("onsen").unwrap_or_else(|e| {
-            error!("Failed to ensure archive path for onsen: {}", e);
-            panic!("Failed to ensure archive path for onsen: {}", e);
-        });
-        let tmpdir = match temp_dir().to_str() {
-            Some(m) => {
-                info!("working path: {}", m);
-                m.to_string()
-            }
-            None => {
-                panic!("cannot find tmpdir")
-            }
-        };
+    pub fn record(&self) -> Result<(), RecordError> { // Changed signature
+        let archive_path = ensure_archive_path("onsen")?;
+
+        let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
+        info!("working path: {}", tmpdir);
 
         for contents in &self.contents {
             match &contents.streaming_url {
@@ -95,25 +85,28 @@ impl OnsenProgram {
                         .arg("-bsf:a")
                         .arg("aac_adtstoasc")
                         .arg(&output_path)
-                        .output()
-                        .expect("failed to execute");
+                        .output()?;
+
                     if !output.status.success() {
-                        error!("result:{:?}", output);
+                        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                        error!("ffmpeg failed for {} - {}: {}", self.title, contents.title, stderr);
+                        // Continue to next content on failure, or return Err?
+                        // For now, mimicking original by continuing, but logging error.
+                        // If this should halt, use:
+                        // return Err(RecordError::CommandFailed {
+                        // command: "ffmpeg".to_string(),
+                        // exit_code: output.status.code(),
+                        // stderr,
+                        // });
+                        continue;
                     }
-                    //TODO change /tmp/ to archive path
-                    //
+
                     let options = CopyOptions::new();
-                    match fs_extra::file::move_file(
+                    fs_extra::file::move_file(
                         &output_path,
                         format!("{}/{}", archive_path, &file_name),
                         &options,
-                    ) {
-                        Ok(n) => n,
-                        Err(e) => {
-                            error!("{:?}", e);
-                            0
-                        }
-                    };
+                    ).map_err(|e| RecordError::Other(format!("Failed to move file for {} - {}: {}", self.title, contents.title, e)))?;
                 }
                 None => warn!(
                     "streaming url is null for {},{}",
@@ -121,6 +114,7 @@ impl OnsenProgram {
                 ),
             };
         }
+        Ok(())
     }
     pub fn init() -> Vec<OnsenProgram> {
         let client = reqwest::blocking::Client::new();

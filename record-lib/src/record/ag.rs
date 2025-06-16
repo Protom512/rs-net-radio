@@ -1,15 +1,27 @@
 use chrono::{Date, DateTime, Duration, Local};
 use fs_extra;
 use fs_extra::file::CopyOptions;
-use log::{error, info}; // Removed debug
+use log::{error, info};
 use std::env::temp_dir;
-use crate::utils::ensure_archive_path;
+use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
 
 use std::fmt::Debug;
 use std::path::Path;
 use std::process::Command;
 use std::process::ExitStatus;
-use std::str; // Removed env, fs
+use std::str;
+
+const AG_PROGRAM_URL: &str = "https://www.joqr.co.jp/qr/agdailyprogram/agdailyprogram.html";
+
+pub fn get_html_from_url(url: &str) -> Result<reqwest::blocking::Response, RecordError> {
+    match reqwest::blocking::get(url) {
+        Ok(n) => Ok(n),
+        Err(e) => {
+            error!("reqwest::blocking::get failed for url {}: {}", url, e);
+            Err(RecordError::Reqwest(e))
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ag {
@@ -22,21 +34,12 @@ impl Ag {
     ///
     ///  # ag+の録画関数
     ///
-    pub fn record(self) -> Result<ExitStatus, std::io::Error> {
+    pub fn record(self) -> Result<ExitStatus, RecordError> {
         let start = self.start_datetime + Duration::seconds(-15);
-        let archive_path = ensure_archive_path("ag").unwrap_or_else(|e| {
-            error!("Failed to ensure archive path for ag: {}", e);
-            panic!("Failed to ensure archive path for ag: {}", e);
-        });
-        let tmpdir = match temp_dir().to_str() {
-            Some(m) => {
-                info!("working path: {}", m);
-                m.to_string()
-            }
-            None => {
-                panic!("cannot find tmpdir")
-            }
-        };
+        let archive_path = ensure_archive_path("ag")?;
+
+        let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
+        info!("working path: {}", tmpdir); // Moved info log after ok_or
 
         let file_name = format!(
             "{}_{}.mp4",
@@ -54,7 +57,7 @@ impl Ag {
         info!("Duration: {}", arg);
 
         let agqr_stream_url = "https://fms2.uniqueradio.jp/agqr10/aandg1.m3u8";
-        let res = Command::new("streamlink")
+        let status_result = Command::new("streamlink")
             .arg(agqr_stream_url)
             .arg("best")
             .arg("-o")
@@ -70,30 +73,26 @@ impl Ag {
             ))
             .status();
 
-        info!("EndTime: {}", self.end_datetime);
-        return match res {
-            Ok(m) => {
-                info!("ExitStatus:{}", m);
-                let options = CopyOptions::new();
-                match fs_extra::file::move_file(
-                    &working_path,
-                    format!("{}/{}", archive_path, &file_name),
-                    &options,
-                ) {
-                    Ok(n) => n,
-                    Err(e) => {
-                        error!("{:?}", e);
-                        0
-                    }
-                };
+        let status = status_result?; // Propagates io::Error
+        if !status.success() {
+            return Err(RecordError::CommandFailed{
+                command: "streamlink".to_string(),
+                exit_code: status.code(),
+                stderr: "Streamlink execution failed, no stderr captured by .status()".to_string()
+            });
+        }
 
-                Ok(m)
-            }
-            Err(e) => {
-                error!("{}", e);
-                Err(e)
-            }
-        };
+        info!("EndTime: {}", self.end_datetime);
+        info!("ExitStatus:{}", status);
+
+        let options = CopyOptions::new();
+        fs_extra::file::move_file(
+            &working_path,
+            format!("{}/{}", archive_path, &file_name),
+            &options,
+        ).map_err(|e| RecordError::Other(format!("Failed to move file: {}", e)))?; // Simplified fs_extra error mapping
+
+        Ok(status)
     }
 
     pub fn new(
@@ -107,17 +106,7 @@ impl Ag {
             end_datetime: *end_datetime,
         }
     }
-    pub fn get_html() -> reqwest::blocking::Response {
-        return match reqwest::blocking::get(
-            "https://www.joqr.co.jp/qr/agdailyprogram/agdailyprogram.html",
-        ) {
-            Ok(n) => n,
-            Err(e) => {
-                error!("{}", e);
-                panic!("{}", e);
-            }
-        };
-    }
+    // Removed old get_html() function
     pub fn html_parse(html_body: &str) -> Vec<Ag> {
         let selector_fragment =
             scraper::Selector::parse("article.dailyProgram-itemBox.ag ").unwrap();
@@ -168,15 +157,20 @@ impl Ag {
     }
 
     pub fn init() -> Vec<Ag> {
-        let get_result = Ag::get_html();
-        let get_result_text = match get_result.text() {
-            Ok(n) => n,
-            Err(e) => {
-                error!("Failed to get text from HTTP response: {}", e);
-                // Return an empty Vec or handle error appropriately
-                return Vec::new();
+        match get_html_from_url(AG_PROGRAM_URL) { // Call the new function
+            Ok(response) => {
+                match response.text() {
+                    Ok(text) => Ag::html_parse(&text),
+                    Err(e) => {
+                        error!("Failed to get text from HTTP response: {}", e);
+                        Vec::new()
+                    }
+                }
             }
-        };
-        Ag::html_parse(&get_result_text)
+            Err(e) => {
+                error!("Failed to get HTML for A&G: {}", e);
+                Vec::new()
+            }
+        }
     }
 }
