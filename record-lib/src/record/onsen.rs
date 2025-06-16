@@ -1,10 +1,11 @@
 use fs_extra;
 use fs_extra::file::CopyOptions;
-use log::{debug, error, info, warn};
+use log::{error, info, warn}; // Removed debug
 use serde::{Deserialize, Serialize};
-use std::env;
+// use std::env; // Removed
+use crate::utils::ensure_archive_path;
 use std::env::temp_dir;
-use std::fs;
+// use std::fs; // Removed
 use std::path::Path;
 use std::process::Command;
 
@@ -47,25 +48,11 @@ pub struct OnsenProgram {
     // "updated"
 }
 impl OnsenProgram {
-    const RS_NET_ARCHIVE_PATH: &'static str = "RS_NET_ARCHIVE_PATH";
     pub fn record(&self) {
-        let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
-            Ok(n) => {
-                let path = format!("{n}/onsen");
-                debug!("{:#?}", &path);
-                if !Path::new(&path).is_dir() {
-                    match fs::create_dir_all(format!("{n}/onsen")) {
-                        Ok(m) => debug!("{:?}", m),
-                        Err(e) => {
-                            error!("{}", e);
-                            panic!("{}", e);
-                        }
-                    };
-                }
-                path
-            }
-            Err(e) => panic!("$RS_NET_ARCHIVE_PATH  is not set: {}", e),
-        };
+        let archive_path = ensure_archive_path("onsen").unwrap_or_else(|e| {
+            error!("Failed to ensure archive path for onsen: {}", e);
+            panic!("Failed to ensure archive path for onsen: {}", e);
+        });
         let tmpdir = match temp_dir().to_str() {
             Some(m) => {
                 info!("working path: {}", m);

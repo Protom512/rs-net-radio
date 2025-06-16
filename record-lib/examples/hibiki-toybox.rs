@@ -1,9 +1,10 @@
 use record_lib::record::hibiki;
+use record_lib::utils::sanitize_filename; // Add this
 use std::env::set_var;
 
 fn main() {
     set_var("RS_NET_ARCHIVE_PATH", "./Temp");
     hibiki::record();
 
-    println!("{}", hibiki::format_forbidden_char("Fate/Test"));
+    println!("{}", sanitize_filename("Fate/Test")); // Use sanitize_filename
 }

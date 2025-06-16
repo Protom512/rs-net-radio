@@ -1,14 +1,15 @@
 use chrono::{Date, DateTime, Duration, Local};
 use fs_extra;
 use fs_extra::file::CopyOptions;
-use log::{debug, error, info};
+use log::{error, info}; // Removed debug
 use std::env::temp_dir;
+use crate::utils::ensure_archive_path;
 
 use std::fmt::Debug;
 use std::path::Path;
 use std::process::Command;
 use std::process::ExitStatus;
-use std::{env, fs, str};
+use std::str; // Removed env, fs
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ag {
@@ -18,29 +19,15 @@ pub struct Ag {
 }
 
 impl Ag {
-    const RS_NET_ARCHIVE_PATH: &'static str = "RS_NET_ARCHIVE_PATH";
     ///
     ///  # ag+の録画関数
     ///
     pub fn record(self) -> Result<ExitStatus, std::io::Error> {
         let start = self.start_datetime + Duration::seconds(-15);
-        let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
-            Ok(n) => {
-                let path = format!("{n}/ag");
-                debug!("{:#?}", &path);
-                if !Path::new(&path).is_dir() {
-                    match fs::create_dir_all(format!("{n}/ag")) {
-                        Ok(m) => debug!("{:?}", m),
-                        Err(e) => {
-                            error!("{}", e);
-                            panic!("{}", e);
-                        }
-                    };
-                }
-                path
-            }
-            Err(e) => panic!("$RS_NET_ARCHIVE_PATH  is not set: {}", e),
-        };
+        let archive_path = ensure_archive_path("ag").unwrap_or_else(|e| {
+            error!("Failed to ensure archive path for ag: {}", e);
+            panic!("Failed to ensure archive path for ag: {}", e);
+        });
         let tmpdir = match temp_dir().to_str() {
             Some(m) => {
                 info!("working path: {}", m);
@@ -131,21 +118,13 @@ impl Ag {
             }
         };
     }
-    pub fn html_parse(get_result: reqwest::blocking::Response) -> Vec<Ag> {
-        let body = match get_result.text() {
-            Ok(n) => n,
-            Err(e) => {
-                error!("{}", e);
-                panic!("{}", e);
-            }
-        };
-
+    pub fn html_parse(html_body: &str) -> Vec<Ag> {
         let selector_fragment =
             scraper::Selector::parse("article.dailyProgram-itemBox.ag ").unwrap();
         let selector = scraper::Selector::parse(" div.dailyProgram-itemContainer >div.js-readmore> div.dailyProgram-itemDetail > p.dailyProgram-itemTitle >a").unwrap();
         let selector_time = scraper::Selector::parse(" div.dailyProgram-itemHeader >h3").unwrap();
 
-        let document = scraper::Html::parse_document(&body);
+        let document = scraper::Html::parse_document(html_body);
 
         for x in &document.errors {
             error!("{}", x)
@@ -190,6 +169,14 @@ impl Ag {
 
     pub fn init() -> Vec<Ag> {
         let get_result = Ag::get_html();
-        Ag::html_parse(get_result)
+        let get_result_text = match get_result.text() {
+            Ok(n) => n,
+            Err(e) => {
+                error!("Failed to get text from HTTP response: {}", e);
+                // Return an empty Vec or handle error appropriately
+                return Vec::new();
+            }
+        };
+        Ag::html_parse(&get_result_text)
     }
 }

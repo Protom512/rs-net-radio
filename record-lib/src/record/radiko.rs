@@ -2,6 +2,7 @@ use chrono;
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
 // use http::Uri;
 use log::{debug, error, info};
+use crate::utils::{ensure_archive_path, sanitize_filename};
 use reqwest::blocking::{Client, Response};
 use serde::{Deserialize, Serialize};
 // use serde_json::to_string;
@@ -10,9 +11,9 @@ use fs_extra::file::CopyOptions;
 use serde_xml_rs::from_str;
 use std::borrow::Cow;
 use std::env::temp_dir;
-use std::path::Path;
+// use std::path::Path; // Removed
 use std::process::{Command, ExitStatus};
-use std::{env, fs};
+// use std::{env, fs}; // Removed
 //
 // #[macro_use]
 // extern crate serde_derive;
@@ -138,7 +139,7 @@ impl RecordRadiko {
         debug!("{:#?}", hoge);
         hoge
     }
-    const RS_NET_ARCHIVE_PATH: &'static str = "RS_NET_ARCHIVE_PATH";
+
     pub fn download(&self) -> ExitStatus {
         let resp = RecordRadiko::auth1();
         let header_str = resp.headers();
@@ -171,23 +172,10 @@ impl RecordRadiko {
         debug!("{:#?}\n", &resp.text().expect("Failed to get resp body"));
 
         // get archive path
-        let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
-            Ok(n) => {
-                let path = format!("{n}/radiko",);
-                debug!("{:#?}", &path);
-                if !Path::new(&path).is_dir() {
-                    match fs::create_dir_all(&path) {
-                        Ok(m) => debug!("{:?}", m),
-                        Err(e) => {
-                            error!("{}", e);
-                            panic!("{}", e);
-                        }
-                    };
-                }
-                path
-            }
-            Err(e) => panic!("$RS_NET_ARCHIVE_PATH  is not set: {}", e),
-        };
+        let archive_path = ensure_archive_path("radiko").unwrap_or_else(|e| {
+            error!("Failed to ensure archive path for radiko: {}", e);
+            panic!("Failed to ensure archive path for radiko: {}", e);
+        });
         let tmpdir = match temp_dir().to_str() {
             Some(m) => {
                 info!("working path: {}", m);
@@ -201,7 +189,7 @@ impl RecordRadiko {
         // create file_name
         let filename = format!("{}_{}.mp4", self.ft.format("%Y%m%d%H%M%S"), self.title);
         // format characters
-        let filename = RecordRadiko::format_forbidden_char(filename.as_str());
+        let filename = sanitize_filename(filename.as_str());
         let output_path = format!("{}/{}", archive_path, &filename);
         let working_path = format!("{}/{}", tmpdir, &filename);
 
@@ -236,23 +224,7 @@ impl RecordRadiko {
         }
         output.status
     }
-    pub fn format_forbidden_char(filename: &str) -> String {
-        // 禁止文字(半角記号)
-        // let cannot_used_file_name = "\\/:*?`\"><|";
-        // 禁止文字(全角記号)
-        // let used_file_name = "￥／：＊？`”＞＜｜";
-        //TODO motto smart ni yaritai
-        filename
-            .replace('\\', "￥")
-            .replace('/', "／")
-            .replace('\"', "”")
-            .replace(':', "：")
-            .replace('*', "＊")
-            .replace('?', "？")
-            .replace('`', "`")
-            .replace('>', "＞")
-            .replace('<', "＜")
-    }
+
     fn auth1() -> Response {
         let client = Client::new();
         let url = "https://radiko.jp/v2/api/auth1";

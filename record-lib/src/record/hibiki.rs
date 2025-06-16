@@ -2,11 +2,12 @@
 use log; // 0.4.14
 use log::{debug, error, info, warn};
 use reqwest; // 0.11.4
+use crate::utils::{ensure_archive_path, sanitize_filename};
 use reqwest::blocking::Response;
 use reqwest::header::{ORIGIN, USER_AGENT};
 use serde::Deserialize;
 use serde_json;
-use std::env;
+// use std::env; // Removed
 use std::env::temp_dir;
 // use std::fmt::format;
 
@@ -14,7 +15,7 @@ extern crate m3u8_rs;
 extern crate tempdir;
 use fs_extra;
 
-use std::fs;
+// use std::fs; // Removed
 use std::path::Path;
 
 use fs_extra::file::CopyOptions;
@@ -100,28 +101,6 @@ impl HibikiVideo {
     }
 }
 
-pub fn format_forbidden_char(filename: &str) -> String {
-    // 禁止文字(半角記号)
-    // let cannot_used_file_name = "\\/:*?`\"><|";
-    // 禁止文字(全角記号)
-    // let used_file_name = "￥／：＊？`”＞＜｜";
-    //TODO motto smart ni yaritai
-    filename
-        .replace('\\', "￥")
-        .replace('/', "／")
-        .replace('\"', "”")
-        .replace(':', "：")
-        .replace('*', "＊")
-        .replace('?', "？")
-        .replace('`', "`")
-        .replace('>', "＞")
-        .replace('<', "＜")
-}
-#[test]
-fn pass_format_char() {
-    assert_eq!(format_forbidden_char("Fate/Test"), "Fate／Test")
-}
-static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
 pub fn record() {
     let page = 1;
 
@@ -194,23 +173,10 @@ pub fn record() {
         }
 
         // get archive path
-        let archive_path = match env::var(RS_NET_ARCHIVE_PATH) {
-            Ok(n) => {
-                let path = format!("{n}/hibiki");
-                debug!("{:#?}", &path);
-                if !Path::new(&path).is_dir() {
-                    match fs::create_dir_all(format!("{n}/hibiki")) {
-                        Ok(m) => debug!("{:?}", m),
-                        Err(e) => {
-                            error!("{}", e);
-                            panic!("{}", e);
-                        }
-                    };
-                }
-                path
-            }
-            Err(e) => panic!("$RS_NET_ARCHIVE_PATH  is not set: {}", e),
-        };
+        let archive_path = ensure_archive_path("hibiki").unwrap_or_else(|e| {
+            error!("Failed to ensure archive path for hibiki: {}", e);
+            panic!("Failed to ensure archive path for hibiki: {}", e);
+        });
         if i.latest_episode_id.is_none() {
             continue;
         }
@@ -245,7 +211,7 @@ pub fn record() {
         // create file_name
         let filename = format!("{}_{}.mp4", i.name, i.latest_episode_name.unwrap());
         // format characters
-        let filename = format_forbidden_char(filename.as_str());
+        let filename = sanitize_filename(filename.as_str());
         let output_path = format!("{}/{}", archive_path, &filename);
         let working_path = format!("{}/{}", tmpdir, &filename);
 
