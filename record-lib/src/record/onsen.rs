@@ -8,31 +8,47 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
+/// Represents the contents of an Onsen program episode.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OnsenProgramContents {
+    /// The ID of the program content.
     id: u32,
+    /// The title of the program content (episode).
     title: String,
+    /// Indicates if this is the latest episode.
     latest: bool,
+    /// Indicates if this is a premium episode.
     premium: bool,
+    /// The delivery date of the episode.
     deliver_date: Option<String>,
+    /// The streaming URL for the episode.
     streaming_url: Option<String>,
 }
+
+/// Represents a performer on an Onsen program.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OnsenPerformer {
+    /// The ID of the performer.
     id: u32,
+    /// The name of the performer.
     name: String,
 }
+
+/// Represents an Onsen radio program.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OnsenProgram {
     // "category_list",
     // #[serde(borrow)]
+    /// A list of contents (episodes) for the program.
     contents: Vec<OnsenProgramContents>,
     // #[serde(borrow)]
+    /// A list of performers for the program.
     performers: Vec<OnsenPerformer>, // "copyright",
     // "delivery_day_of_week",
     // "delivery_interval",
     // "directory_name",
     // "display",
+    /// The ID of the program.
     id: u32,
     // "image",
     // "list",
@@ -43,11 +59,16 @@ pub struct OnsenProgram {
     // "related_programs",
     // "show_contents_count",
     // "sponsor_name",
+    /// The title of the program.
     pub title: String,
     // "updated"
 }
 impl OnsenProgram {
     const RS_NET_ARCHIVE_PATH: &'static str = "RS_NET_ARCHIVE_PATH";
+    /// Records the episodes of the Onsen program.
+    ///
+    /// This function iterates through the program's contents (episodes) and downloads
+    /// any available streams using ffmpeg.
     pub fn record(&self) {
         let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
             Ok(n) => {
@@ -135,6 +156,16 @@ impl OnsenProgram {
             };
         }
     }
+
+    /// Initializes a list of `OnsenProgram` tasks by fetching data from the Onsen API.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `OnsenProgram` instances.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the API request or JSON parsing fails.
     pub fn init() -> Vec<OnsenProgram> {
         let client = reqwest::blocking::Client::new();
         match client.get("https://www.onsen.ag/web_api/programs").send() {

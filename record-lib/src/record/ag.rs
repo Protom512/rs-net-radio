@@ -10,10 +10,14 @@ use std::process::Command;
 use std::process::ExitStatus;
 use std::{env, fs, str};
 
+/// Represents an AGQR program recording task.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ag {
+    /// The title of the program.
     pub title: String,
+    /// The start date and time of the program.
     pub start_datetime: DateTime<Local>,
+    /// The end date and time of the program.
     pub end_datetime: DateTime<Local>,
 }
 
@@ -109,6 +113,17 @@ impl Ag {
         };
     }
 
+    /// Creates a new `Ag` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `title` - The title of the program.
+    /// * `start_datetime` - The start date and time of the program.
+    /// * `end_datetime` - The end date and time of the program.
+    ///
+    /// # Returns
+    ///
+    /// A new `Ag` instance.
     pub fn new(
         title: &str,
         start_datetime: &DateTime<Local>,
@@ -120,6 +135,16 @@ impl Ag {
             end_datetime: *end_datetime,
         }
     }
+
+    /// Fetches the HTML content of the AGQR daily program schedule page.
+    ///
+    /// # Returns
+    ///
+    /// A `reqwest::blocking::Response` containing the HTML content.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HTTP request fails.
     pub fn get_html() -> reqwest::blocking::Response {
         return match reqwest::blocking::get(
             "https://www.joqr.co.jp/qr/agdailyprogram/agdailyprogram.html",
@@ -131,6 +156,20 @@ impl Ag {
             }
         };
     }
+
+    /// Parses the HTML content of the AGQR daily program schedule page and extracts program information.
+    ///
+    /// # Arguments
+    ///
+    /// * `get_result` - A `reqwest::blocking::Response` containing the HTML content.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `Ag` instances representing the programs in the schedule.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HTML content cannot be parsed or if expected elements are not found.
     pub fn html_parse(get_result: reqwest::blocking::Response) -> Vec<Ag> {
         let body = match get_result.text() {
             Ok(n) => n,
@@ -188,6 +227,11 @@ impl Ag {
         arr
     }
 
+    /// Initializes a list of `Ag` tasks by fetching and parsing the AGQR daily program schedule.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `Ag` instances representing the programs in the schedule.
     pub fn init() -> Vec<Ag> {
         let get_result = Ag::get_html();
         Ag::html_parse(get_result)
