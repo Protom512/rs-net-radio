@@ -167,9 +167,9 @@ fn test_generate_episode_filename() {
     );
     assert_eq!(
         generate_episode_filename("Program\"E", Some("Episode`4")),
-        "Program”E_Episode`4.mp4"  // Assuming ` is not replaced by format_forbidden_char based on its current implementation
+        "Program”E_Episode`4.mp4" // Assuming ` is not replaced by format_forbidden_char based on its current implementation
     );
-     assert_eq!(
+    assert_eq!(
         generate_episode_filename("Program>F", Some("Episode<5")),
         "Program＞F_Episode＜5.mp4"
     );
@@ -268,10 +268,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     };
 
     if video.live_flg {
-        let err_msg = format!(
-            "{} Not Downloadable. Program is live.",
-            program.name
-        );
+        let err_msg = format!("{} Not Downloadable. Program is live.", program.name);
         error!("{}", err_msg);
         return Err(err_msg);
     }
@@ -293,7 +290,10 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     }
 
     if program.latest_episode_id.is_none() {
-        let err_msg = format!("Program {} has no latest_episode_id. Skipping.", program.name);
+        let err_msg = format!(
+            "Program {} has no latest_episode_id. Skipping.",
+            program.name
+        );
         warn!("{}", err_msg);
         return Err(err_msg); // Or Ok(()), depending on whether this is considered an error or just a skippable item.
     }
@@ -312,7 +312,11 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         }
     };
 
-    let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, format_forbidden_char(&program.name));
+    let imagefile = format!(
+        "{}/{}_thumb.jpg",
+        &tmpdir,
+        format_forbidden_char(&program.name)
+    );
     let mut img = match std::fs::File::create(&imagefile) {
         Ok(f) => f,
         Err(e) => {
@@ -326,7 +330,10 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         Some(ref n) => match reqwest::blocking::get(n) {
             Ok(mut m) => {
                 if let Err(e) = m.copy_to(&mut img) {
-                    let err_msg = format!("Failed to download and save image for {}: {}", program.name, e);
+                    let err_msg = format!(
+                        "Failed to download and save image for {}: {}",
+                        program.name, e
+                    );
                     error!("{}", err_msg);
                     return Err(err_msg);
                 }
@@ -387,7 +394,10 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
                         Ok(())
                     }
                     Err(e) => {
-                        let err_msg = format!("Failed to move file from {} to {}: {}", working_path, output_path, e);
+                        let err_msg = format!(
+                            "Failed to move file from {} to {}: {}",
+                            working_path, output_path, e
+                        );
                         error!("{}", err_msg);
                         Err(err_msg)
                     }
@@ -444,18 +454,15 @@ pub fn record() {
         }
     };
 
-    info!("Fetched {} programs. Starting processing...", programs.len());
+    info!(
+        "Fetched {} programs. Starting processing...",
+        programs.len()
+    );
     for program in programs {
         info!("Processing program: {}", program.name);
         match process_program(&program, &archive_base_path) {
-            Ok(()) => info!(
-                "Successfully processed program: {}",
-                program.name
-            ),
-            Err(e) => error!(
-                "Failed to process program {}: {}",
-                program.name, e
-            ),
+            Ok(()) => info!("Successfully processed program: {}", program.name),
+            Err(e) => error!("Failed to process program {}: {}", program.name, e),
         }
     }
     info!("Finished processing all programs.");
