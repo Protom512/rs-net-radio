@@ -435,7 +435,10 @@ pub fn record() -> Result<(), RecordError> {
             // Instead of panicking, return an error.
             // The specific error type might need adjustment based on how RecordError is defined.
             // For now, let's assume there's a variant or method to create a RecordError from a String or generic error.
-            return Err(RecordError::Custom(format!("Failed to fetch or parse program list: {}", e)));
+            return Err(RecordError::Custom(format!(
+                "Failed to fetch or parse program list: {}",
+                e
+            )));
         }
     };
 
@@ -480,7 +483,10 @@ mod tests {
                 panic!("Expected EnvVar::NotPresent, but got EnvVar::NotUnicode. The env var was set to a non-unicode value during the test setup, which is unexpected.");
             }
             Err(e) => {
-                panic!("Expected RecordError::EnvVar(NotPresent), but got a different error: {:?}", e);
+                panic!(
+                    "Expected RecordError::EnvVar(NotPresent), but got a different error: {:?}",
+                    e
+                );
             }
             Ok(_) => {
                 panic!("Expected an error when {} is not set, but got Ok", key);
