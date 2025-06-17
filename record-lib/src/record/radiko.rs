@@ -1,22 +1,16 @@
+use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
+
 use chrono;
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
-// use http::Uri;
-use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
 use log::{debug, error, info};
 use reqwest::blocking::{Client, Response};
 use serde::{Deserialize, Serialize};
-// use serde_json::to_string;
 
 use fs_extra::file::CopyOptions;
 use serde_xml_rs::from_str;
 use std::borrow::Cow;
 use std::env::temp_dir;
-// use std::path::Path; // Removed
 use std::process::{Command, ExitStatus};
-// use std::{env, fs}; // Removed
-//
-// #[macro_use]
-// extern crate serde_derive;
 
 /// Represents the overall Radiko data structure.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -134,6 +128,7 @@ pub struct StreamingUrl {
     // media_url_path: String,
     // playlist_url_path: String,
 }
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct RecordRadiko {
     pub title: String, // Made public for access in main.rs closure
@@ -201,7 +196,7 @@ impl RecordRadiko {
             .ok_or_else(|| RecordError::Other("Missing X-Radiko-Keylength header".to_string()))?
             .to_str()
             .map_err(|e| RecordError::Other(format!("Invalid X-Radiko-Keylength header: {}", e)))?;
-        let key_length: u8 = key_length_str.parse().map_err(|e| {
+        let key_length: usize = key_length_str.parse().map_err(|e| {
             RecordError::Other(format!("Failed to parse X-Radiko-Keylength: {}", e))
         })?;
 
@@ -214,9 +209,16 @@ impl RecordRadiko {
             RecordError::Other(format!("Failed to parse X-Radiko-Keyoffset: {}", e))
         })?;
 
-        let partial_key =
-            base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
-        let _resp_auth2 = RecordRadiko::auth2(authtoken, partial_key)?; // Propagate error from auth2
+        if keyoffset + key_length > radiko_authkey_value.len() {
+            return Err(RecordError::Other(format!(
+                "Invalid slice: offset {} + length {} exceeds {}",
+                keyoffset,
+                key_length,
+                radiko_authkey_value.len()
+            )));
+        }
+        let partial_key = base64::encode(&radiko_authkey_value[keyoffset..keyoffset + key_length]);
+        let _resp_auth2 = RecordRadiko::auth2(authtoken, partial_key)?;
         debug!("{:#?}\n", &_resp_auth2.text()?); // Propagate error from text()
 
         // get archive path
@@ -263,7 +265,7 @@ impl RecordRadiko {
         }
 
         let options = CopyOptions::new();
-        fs_extra::file::move_file(&working_path, &output_path, &options).map_err(|e| {
+        fs_extra::file::move_file(&working_path, output_path, &options).map_err(|e| {
             RecordError::Other(format!("Failed to move file for {}: {}", self.title, e))
         })?;
 
@@ -290,7 +292,7 @@ impl RecordRadiko {
         Ok(client
             .get(url)
             .header("pragma", "no-cache")
-            .header("X-Radiko-User", " test-stream")
+            .header("X-Radiko-User", "test-stream")
             .header("X-Radiko-Device", "pc")
             .header("X-Radiko-AuthToken", token)
             .header("X-Radiko-PartialKey", partial_key)
@@ -471,7 +473,7 @@ fn pass_auth2() {
         .parse()
         .expect("Failed to parse to integer");
     let partial_key =
-        base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
+        Engine::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
     assert_eq!(
         RecordRadiko::auth2(authtoken, partial_key)
             .unwrap()

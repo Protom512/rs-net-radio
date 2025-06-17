@@ -55,7 +55,7 @@ impl Ag {
         info!("StartTime: {}", self.start_datetime);
         let path = Path::new(&working_path);
         if path.exists() {
-            "testign ";
+            "testign file exists, removing it".to_string();
         }
         let arg = self.end_datetime - start;
         info!("Duration: {}", arg);
@@ -136,21 +136,15 @@ impl Ag {
     /// # Panics
     ///
     /// Panics if the HTML content cannot be parsed or if expected elements are not found.
-    pub fn html_parse(get_result: reqwest::blocking::Response) -> Vec<Ag> {
-        let body = match get_result.text() {
-            Ok(n) => n,
-            Err(e) => {
-                error!("{}", e);
-                panic!("{}", e);
-            }
-        };
+    pub fn html_parse(html_body: &str) -> Vec<Ag> {
+        let body = html_body.to_string();
 
         let selector_fragment =
             scraper::Selector::parse("article.dailyProgram-itemBox.ag ").unwrap();
         let selector = scraper::Selector::parse(" div.dailyProgram-itemContainer >div.js-readmore> div.dailyProgram-itemDetail > p.dailyProgram-itemTitle >a").unwrap();
         let selector_time = scraper::Selector::parse(" div.dailyProgram-itemHeader >h3").unwrap();
 
-        let document = scraper::Html::parse_document(html_body);
+        let document = scraper::Html::parse_document(&body);
 
         for x in &document.errors {
             error!("{}", x)

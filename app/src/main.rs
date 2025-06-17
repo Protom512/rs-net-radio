@@ -1,8 +1,7 @@
 use chrono::Timelike;
 use chrono::{offset::TimeZone, DateTime, Datelike, Duration, Local, Utc};
-use env_logger::fmt::Color;
 use env_logger::Builder;
-use log::{debug, error, info, Level};
+use log::{debug, error, info};
 use std::error::Error; //use log::LevelFilter;
 use std::io::Write;
 extern crate record_lib;
@@ -168,23 +167,21 @@ fn job_hibiki(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
 async fn main() {
     let mut builder = Builder::new();
     builder.format(|buf, record| {
-        let level_color = match record.level() {
-            Level::Trace => Color::White,
-            Level::Debug => Color::Blue,
-            Level::Info => Color::Green,
-            Level::Warn => Color::Yellow,
-            Level::Error => Color::Red,
-        };
-        let mut level_style = buf.style();
-        level_style.set_color(level_color);
+        /// Returns the default style for the given log level.
+        /// This style includes color and formatting attributes that will be used to display log messages.
+        /// The style is determined by the log level (e.g., Error, Warn, Info, Debug, Trace).
+        let style = buf.default_level_style(record.level());
         writeln!(
             buf,
-            "{} [{}] {}:{} - {}",
-            Local::now().format("%Y-%m-%dT%H:%M:%S"),
-            level_style.value(record.level()),
-            level_style.value(&record.file().unwrap_or("____unknown")[4..]),
-            level_style.value(&record.line().unwrap_or(0)),
-            level_style.value(record.args())
+            "[{}] [{}:{}] {}",
+            record.level(),
+            record
+                .file()
+                .unwrap_or("____unknown")
+                .get(4..)
+                .unwrap_or("unknown"),
+            record.line().unwrap_or(0),
+            record.args()
         )
     });
     builder.filter(None, log::LevelFilter::Info);
@@ -195,7 +192,7 @@ async fn main() {
 
     let init_schedule_str = "00 00 20 * * * *";
 
-    let init_today = Local::today();
+    let init_today = Local::now();
     let init_string = format!(
         "{}/{}/{} 04:00:00",
         init_today.year(),

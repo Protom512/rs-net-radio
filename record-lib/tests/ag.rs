@@ -6,15 +6,17 @@ use record_lib::record::ag::{get_html_from_url, Ag}; // Added get_html_from_url
 
 #[test]
 fn check_connection_mocked() {
-    // For mockito 0.31, mocking is global. The path should be absolute.
+    let mut server = Server::new();
+
     let mock_path = "/test_get_html";
-    let _m = mockito::mock("GET", mock_path)
+    let mock = server
+        .mock("GET", mock_path)
         .with_status(200)
-        .with_header("content-type", "text/html")
-        .with_body("mocked html content")
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"response": "mock data"}"#)
         .create();
 
-    let full_mock_url = format!("{}{}", mockito::server_url(), mock_path);
+    let full_mock_url = format!("{}{}", server.url(), mock_path);
 
     match get_html_from_url(&full_mock_url) {
         Ok(response) => {
@@ -23,7 +25,7 @@ fn check_connection_mocked() {
         }
         Err(e) => panic!("get_html_from_url failed: {}", e),
     }
-    // _m.assert(); // .assert() is available on the mock guard in 0.31
+    mock.assert();
 }
 
 #[test]
