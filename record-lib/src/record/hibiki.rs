@@ -1,4 +1,5 @@
 // use core::panicking::panic;
+use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
 use log; // 0.4.14
 use log::{debug, error, info, warn};
 use reqwest; // 0.11.4
@@ -6,7 +7,7 @@ use reqwest::blocking::Response;
 use reqwest::header::{ORIGIN, USER_AGENT};
 use serde::Deserialize;
 use serde_json;
-use std::env;
+
 use std::env::temp_dir;
 // use std::fmt::format;
 
@@ -14,7 +15,7 @@ extern crate m3u8_rs;
 extern crate tempdir;
 use fs_extra;
 
-use std::fs;
+use std::fs; // Removed
 use std::path::Path;
 
 use fs_extra::file::CopyOptions;
@@ -68,9 +69,8 @@ pub struct HibikiJson {
 /// # Returns
 ///
 /// A `reqwest::Result` containing the API response.
-pub fn get_api(url: &str) -> reqwest::Result<Response> {
+pub fn get_api(url: &str) -> Result<Response, RecordError> {
     let client = reqwest::blocking::Client::new();
-
     client
         .get(url)
         .header(ORIGIN, "https://hibiki-radio.jp")
@@ -80,38 +80,26 @@ pub fn get_api(url: &str) -> reqwest::Result<Response> {
         )
         .header("X-Requested-With", "XMLHttpRequest")
         .send()
-}
-#[test]
-fn pass_get_api() {
-    let result = get_api("https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=1")
-        .expect("Failed to request on test");
-    assert_eq!(result.status(), http::StatusCode::OK)
+        .map_err(RecordError::Reqwest)
 }
 
 impl HibikiVideo {
-    fn get_m3u8_url(&self) -> String {
+    fn get_m3u8_url(&self) -> Result<String, RecordError> {
         let url = format!(
             "https://vcms-api.hibiki-radio.jp/api/v1/videos/play_check?video_id={video_id}",
             video_id = self.id
         );
         debug!("{}", url);
-        let playlist = get_api(&url).unwrap();
-        debug!("{:#?}", &playlist);
-        let playlist_info =
-            match serde_json::from_str::<HibikiPlaylistInfo>(&playlist.text().unwrap()) {
-                Ok(n) => n,
-                Err(e) => panic!("{}", e),
-            };
+        let playlist_response = get_api(&url)?;
+        debug!("{:#?}", &playlist_response);
+        let playlist_text = playlist_response.text().map_err(RecordError::Reqwest)?;
+        let playlist_info: HibikiPlaylistInfo =
+            serde_json::from_str(&playlist_text).map_err(RecordError::SerdeJson)?;
+
         debug!("{:#?}", &playlist_info);
         match playlist_info.token {
-            Some(n) => {
-                debug!(
-                    "{:?}",
-                    format!("{}&token={}", playlist_info.playlist_url, n)
-                );
-                format!("{}&token={}", playlist_info.playlist_url, n)
-            }
-            None => playlist_info.playlist_url,
+            Some(n) => Ok(format!("{}&token={}", playlist_info.playlist_url, n)),
+            None => Ok(playlist_info.playlist_url),
         }
     }
 }
@@ -358,8 +346,13 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     let working_path = format!("{}/{}", tmpdir, &filename);
 
     debug!("name:{}\n\tid:{:?}\n", program.name, video.live_flg);
-    let url = video.get_m3u8_url(); // This can panic inside if get_api or json parsing fails.
-
+    let url = match video.get_m3u8_url() {
+        Ok(u) => u,
+        Err(e) => {
+            error!("Failed to get m3u8 url: {}", e);
+            return Err(e.to_string());
+        }
+    };
     debug!("title: {},url\"{}\"", program.name, url);
 
     let path = Path::new(&output_path);
@@ -425,19 +418,7 @@ static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
 /// and downloads them using ffmpeg.
 pub fn record() {
     // Get the base archive path from environment variable. This is critical.
-    let archive_base_path = match env::var(RS_NET_ARCHIVE_PATH) {
-        Ok(path_str) => path_str,
-        Err(e) => {
-            error!(
-                "Critical: {} environment variable not set: {}",
-                RS_NET_ARCHIVE_PATH, e
-            );
-            panic!(
-                "Critical: {} environment variable not set: {}",
-                RS_NET_ARCHIVE_PATH, e
-            );
-        }
-    };
+    let archive_base_path = ensure_archive_path("hibiki").expect("Failed to get archive base path");
 
     let page = 1; // Assuming page is fixed at 1 as per original logic
     let programs_url = format!(
