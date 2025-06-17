@@ -1,5 +1,5 @@
 // use core::panicking::panic;
-use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
+use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
 use log; // 0.4.14
 use log::{debug, error, info, warn};
 use reqwest; // 0.11.4
@@ -7,7 +7,7 @@ use reqwest::blocking::Response;
 use reqwest::header::{ORIGIN, USER_AGENT};
 use serde::Deserialize;
 use serde_json;
-// use std::env; // Removed
+
 use std::env::temp_dir;
 // use std::fmt::format;
 
@@ -15,7 +15,7 @@ extern crate m3u8_rs;
 extern crate tempdir;
 use fs_extra;
 
-// use std::fs; // Removed
+use std::fs; // Removed
 use std::path::Path;
 
 use fs_extra::file::CopyOptions;
@@ -346,8 +346,13 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     let working_path = format!("{}/{}", tmpdir, &filename);
 
     debug!("name:{}\n\tid:{:?}\n", program.name, video.live_flg);
-    let url = video.get_m3u8_url(); // This can panic inside if get_api or json parsing fails.
-
+    let url = match video.get_m3u8_url() {
+        Ok(u) => u,
+        Err(e) => {
+            error!("Failed to get m3u8 url: {}", e);
+            return Err(e.to_string());
+        }
+    };
     debug!("title: {},url\"{}\"", program.name, url);
 
     let path = Path::new(&output_path);
@@ -413,19 +418,7 @@ static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
 /// and downloads them using ffmpeg.
 pub fn record() {
     // Get the base archive path from environment variable. This is critical.
-    let archive_base_path = match env::var(RS_NET_ARCHIVE_PATH) {
-        Ok(path_str) => path_str,
-        Err(e) => {
-            error!(
-                "Critical: {} environment variable not set: {}",
-                RS_NET_ARCHIVE_PATH, e
-            );
-            panic!(
-                "Critical: {} environment variable not set: {}",
-                RS_NET_ARCHIVE_PATH, e
-            );
-        }
-    };
+    let archive_base_path = ensure_archive_path("hibiki").expect("Failed to get archive base path");
 
     let page = 1; // Assuming page is fixed at 1 as per original logic
     let programs_url = format!(

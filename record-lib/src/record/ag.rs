@@ -153,7 +153,8 @@ impl Ag {
         let elements = document.select(&selector_fragment);
         let mut arr = Vec::<Ag>::new();
         let mut datetime_str;
-        let local_date: Date<Local> = Local::today();
+        let now: DateTime<Local> = Local::now();
+        let local_date: Date<Local> = now.date();
         for i in elements {
             let mut start_offset_h: Duration = Duration::hours(0);
             let mut start_offset_m: Duration = Duration::minutes(0);

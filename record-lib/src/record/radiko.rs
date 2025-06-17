@@ -1,5 +1,5 @@
 use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
-
+                                                                         // Assuming this is a custom module for base64 encoding
 use chrono;
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
 use log::{debug, error, info};
@@ -473,7 +473,7 @@ fn pass_auth2() {
         .parse()
         .expect("Failed to parse to integer");
     let partial_key =
-        Engine::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
+        base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
     assert_eq!(
         RecordRadiko::auth2(authtoken, partial_key)
             .unwrap()

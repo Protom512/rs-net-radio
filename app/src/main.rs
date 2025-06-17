@@ -151,14 +151,7 @@ fn job_hibiki(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
     debug!("{}", &init_schedule);
     Job::new(init_schedule, move |_uuid, _l| {
         info!("Executing Hibiki record job");
-        match record() {
-            Ok(()) => {
-                info!("Hibiki Record successful");
-            }
-            Err(e) => {
-                error!("Hibiki Record execution error: {}", e);
-            }
-        }
+        record();
     })
     .map_err(Box::from) // Added error mapping
 }
