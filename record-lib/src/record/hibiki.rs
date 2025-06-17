@@ -104,194 +104,354 @@ impl HibikiVideo {
     }
 }
 
-pub fn record() -> Result<(), RecordError> {
-    let page = 1;
-
-    let get_result = get_api(&format!(
-        // Use ?
-        "https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={page}"
-    ))?;
-    let program_list_text = get_result.text().map_err(RecordError::Reqwest)?;
-    let programs: Vec<HibikiJson> =
-        serde_json::from_str(&program_list_text).map_err(RecordError::SerdeJson)?;
-
-    for i in programs {
-        // Changed 'sea' to 'programs'
-        debug!("{:?}", i);
-        let episode_response = match get_api(&format!(
-            "https://vcms-api.hibiki-radio.jp/api/v1/programs/{}",
-            i.access_id
-        )) {
-            Ok(n) => n,
-            Err(e) => {
-                error!("API error for program {} ({}): {}", i.name, i.access_id, e);
-                continue;
-            }
-        };
-        let episode_text = match episode_response.text() {
-            Ok(t) => t,
-            Err(e) => {
-                error!(
-                    "Failed to get text for episode details of {}: {}",
-                    i.name, e
-                );
-                continue;
-            }
-        };
-        let episode_data: HibikiEpisode = match serde_json::from_str(&episode_text) {
-            // Changed 'sea' to 'episode_data'
-            Ok(d) => d,
-            Err(e) => {
-                error!("Failed to parse episode details for {}: {}", i.name, e);
-                continue;
-            }
-        };
-
-        let episode = match &episode_data.episode {
-            // Changed 'sea' to 'episode_data'
-            Some(n) => n,
-            None => {
-                error!("Not Downloadable. Failed to get Episode Id for {}", i.name);
-                continue;
-            }
-        };
-
-        let latest_id = i.latest_episode_id.ok_or_else(|| {
-            RecordError::Other(format!("Missing latest_episode_id for {}", i.name))
-        })?;
-        let episode_name = i.latest_episode_name.clone().ok_or_else(|| {
-            RecordError::Other(format!("Missing latest_episode_name for {}", i.name))
-        })?;
-
-        if latest_id != episode.id {
-            error!(
-                "Not Downloadable. Outdated Episode, title={} expected_id={} actual_id={}",
-                i.name, // Use i.name directly
-                latest_id,
-                episode.id
-            );
-            continue;
-        }
-        let video = match &episode.video {
-            Some(n) => n,
-            None => {
-                error!("Not Downloadable. Failed to get live_flg");
-                continue;
-            }
-        };
-        if video.live_flg {
-            error!("{} Not Downloadable. Failed to get live_flg", i.name);
-            continue;
-        }
-
-        // get archive path
-        let archive_path = ensure_archive_path("hibiki")?;
-        if i.latest_episode_id.is_none() {
-            continue;
-        }
-
-        let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
-        info!("working path: {}", tmpdir);
-
-        let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, &i.name);
-        let mut img = std::fs::File::create(&imagefile)?;
-        match i.pc_image_url {
-            Some(ref n) => {
-                let mut m = reqwest::blocking::get(n)?;
-                m.copy_to(&mut img)?;
-            }
-            None => {
-                error!("Image not downloadable for {}.", i.name);
-                // Optionally, return an error or skip to next iteration
-                // For now, just logging and continuing as per original logic for missing images
-                continue;
-            }
-        };
-
-        // create file_name
-        // Use episode_name captured above
-        let filename = format!("{}_{}.mp4", i.name, episode_name);
-        // format characters
-        let filename = sanitize_filename(filename.as_str());
-        let output_path = format!("{}/{}", archive_path, &filename);
-        let working_path = format!("{}/{}", tmpdir, &filename);
-
-        debug!("name:{}\n\tid:{:?}\n", i.name, video.live_flg);
-        let url = match video.get_m3u8_url() {
-            Ok(u) => u,
-            Err(e) => {
-                error!("Failed to get m3u8 url for {}: {}", i.name, e);
-                continue;
-            }
-        };
-
-        debug!("title: {},url\"{}\"", i.name, url);
-
-        let path = Path::new(&output_path);
-        if path.exists() {
-            warn!("{} already exists, skipping", &output_path);
-            continue;
-        }
-
-        let output = Command::new("ffmpeg")
-            .arg("-loglevel")
-            .arg("warning")
-            .arg("-i")
-            .arg(&imagefile)
-            .arg("-i")
-            .arg(&url)
-            .arg("-vcodec")
-            .arg("copy")
-            .arg("-acodec")
-            .arg("copy")
-            .arg("-bsf:a")
-            .arg("aac_adtstoasc")
-            .arg(&working_path)
-            .output()?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            error!("ffmpeg failed for {}: {}", i.name, stderr);
-            return Err(RecordError::CommandFailed {
-                command: "ffmpeg".to_string(),
-                exit_code: output.status.code(),
-                stderr,
-            });
-        }
-
-        let options = CopyOptions::new();
-        fs_extra::file::move_file(&working_path, &output_path, &options).map_err(|e| {
-            RecordError::Other(format!("Failed to move file for {}: {}", i.name, e))
-        })?;
-    }
-    Ok(())
+/// Formats a filename to replace characters that are forbidden in filenames.
+///
+/// # Arguments
+///
+/// * `filename` - The original filename.
+///
+/// # Returns
+///
+/// A new string with forbidden characters replaced.
+pub fn format_forbidden_char(filename: &str) -> String {
+    // 禁止文字(半角記号)
+    // let cannot_used_file_name = "\\/:*?`\"><|";
+    // 禁止文字(全角記号)
+    // let used_file_name = "￥／：＊？`”＞＜｜";
+    //TODO motto smart ni yaritai
+    filename
+        .replace('\\', "￥")
+        .replace('/', "／")
+        .replace('\"', "”")
+        .replace(':', "：")
+        .replace('*', "＊")
+        .replace('?', "？")
+        .replace('`', "`")
+        .replace('>', "＞")
+        .replace('<', "＜")
+}
+#[test]
+fn pass_format_char() {
+    assert_eq!(format_forbidden_char("Fate/Test"), "Fate／Test")
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use http::StatusCode;
-    use mockito; // Required for StatusCode::OK
+#[test]
+fn test_generate_episode_filename() {
+    assert_eq!(
+        generate_episode_filename("Program A", Some("Episode 1")),
+        "Program A_Episode 1.mp4"
+    );
+    assert_eq!(
+        generate_episode_filename("Program B", None),
+        "Program B_UnknownEpisode.mp4"
+    );
+    assert_eq!(
+        generate_episode_filename("Program/C", Some("Episode:2*")),
+        "Program／C_Episode：2＊.mp4"
+    );
+    assert_eq!(
+        generate_episode_filename("Program\\D", Some("Episode?3")),
+        "Program￥D_Episode？3.mp4"
+    );
+    assert_eq!(
+        generate_episode_filename("Program\"E", Some("Episode`4")),
+        "Program”E_Episode`4.mp4" // Assuming ` is not replaced by format_forbidden_char based on its current implementation
+    );
+    assert_eq!(
+        generate_episode_filename("Program>F", Some("Episode<5")),
+        "Program＞F_Episode＜5.mp4"
+    );
+}
 
-    #[test]
-    fn pass_get_api_mocked() {
-        // Renamed
-        let server = mockito::mock("GET", "/") // mockito 0.31 syntax, removed mut
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"status":"ok"}"#)
-            .create();
+/// Fetches data from a URL and parses it into a specified type.
+///
+/// # Arguments
+///
+/// * `url` - The URL to fetch data from.
+///
+/// # Type Parameters
+///
+/// * `T` - The type to deserialize the JSON response into. Must implement `serde::Deserialize`.
+///
+/// # Returns
+///
+/// A `Result` containing the parsed data of type `T` or an error message string.
+fn fetch_and_parse<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, String> {
+    let response = get_api(url).map_err(|e| {
+        let err_msg = format!("Failed to get API response from {}: {}", url, e);
+        error!("{}", err_msg);
+        err_msg
+    })?;
 
-        match get_api(&mockito::server_url()) {
-            Ok(response) => {
-                assert_eq!(response.status(), StatusCode::OK);
-                assert_eq!(
-                    response.json::<serde_json::Value>().unwrap(),
-                    serde_json::json!({"status":"ok"})
-                );
-            }
-            Err(e) => panic!("get_api_mocked failed: {}", e),
+    let text = response.text().map_err(|e| {
+        let err_msg = format!("Failed to read response text from {}: {}", url, e);
+        error!("{}", err_msg);
+        err_msg
+    })?;
+
+    serde_json::from_str::<T>(&text).map_err(|e| {
+        let err_msg = format!("Failed to parse JSON from {}: {}", url, e);
+        error!("Error: {}, JSON Text: {}", err_msg, text); // Log the problematic JSON
+        err_msg
+    })
+}
+
+/// Generates a sanitized filename for an episode.
+///
+/// # Arguments
+///
+/// * `program_name` - The name of the program.
+/// * `episode_name_opt` - An `Option` containing the episode name. Defaults to "UnknownEpisode".
+///
+/// # Returns
+///
+/// A `String` representing the sanitized filename (e.g., "Program_Name_Episode_Name.mp4").
+fn generate_episode_filename(program_name: &str, episode_name_opt: Option<&str>) -> String {
+    let episode_name = episode_name_opt.unwrap_or("UnknownEpisode");
+    let raw_filename = format!("{}_{}.mp4", program_name, episode_name);
+    format_forbidden_char(&raw_filename)
+}
+
+fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), String> {
+    debug!("{:?}", program);
+    let episode_url = format!(
+        "https://vcms-api.hibiki-radio.jp/api/v1/programs/{}",
+        program.access_id
+    );
+    let api_episode_detail: HibikiEpisode = fetch_and_parse(&episode_url)?;
+
+    let episode = match &api_episode_detail.episode {
+        Some(n) => n,
+        None => {
+            let err_msg = format!(
+                "Not Downloadable. Failed to get Episode Id for program: {}",
+                program.name
+            );
+            error!("{}", err_msg);
+            return Err(err_msg);
         }
-        server.assert(); // Verify mock was called (mockito 0.31)
+    };
+
+    if program.latest_episode_id.unwrap_or(0) != episode.id {
+        let err_msg = format!(
+            "Not Downloadable. Outdated Episode, title={name} expected_id={expected_id} actual_id={actual_id}",
+            name = program.latest_episode_name.as_deref().unwrap_or("UNKNOWN_NAME"),
+            expected_id = program.latest_episode_id.unwrap_or(0),
+            actual_id = episode.id
+        );
+        error!("{}", err_msg);
+        return Err(err_msg);
     }
+
+    let video = match &episode.video {
+        Some(n) => n,
+        None => {
+            let err_msg = format!(
+                "Not Downloadable. Failed to get video information for program: {}",
+                program.name
+            );
+            error!("{}", err_msg);
+            return Err(err_msg);
+        }
+    };
+
+    if video.live_flg {
+        let err_msg = format!("{} Not Downloadable. Program is live.", program.name);
+        error!("{}", err_msg);
+        return Err(err_msg);
+    }
+
+    // Construct archive path using the provided archive_base_path
+    let archive_path = format!("{}/hibiki", archive_base_path);
+    debug!("Archive path: {:#?}", &archive_path);
+    if !Path::new(&archive_path).is_dir() {
+        match fs::create_dir_all(&archive_path) {
+            Ok(_) => debug!("Created directory: {}", archive_path),
+            Err(e) => {
+                let err_msg = format!("Failed to create archive directory {}: {}", archive_path, e);
+                error!("{}", err_msg);
+                // This might be a panic-worthy situation depending on requirements,
+                // but for now, returning Err as per function's contract.
+                return Err(err_msg);
+            }
+        };
+    }
+
+    if program.latest_episode_id.is_none() {
+        let err_msg = format!(
+            "Program {} has no latest_episode_id. Skipping.",
+            program.name
+        );
+        warn!("{}", err_msg);
+        return Err(err_msg); // Or Ok(()), depending on whether this is considered an error or just a skippable item.
+    }
+
+    let tmpdir = match temp_dir().to_str() {
+        Some(m) => {
+            info!("working path: {}", m);
+            m.to_string()
+        }
+        None => {
+            // This is a more critical system issue.
+            // For a library function, returning Err is better than panic.
+            let err_msg = "Cannot find tmpdir".to_string();
+            error!("{}", err_msg);
+            return Err(err_msg);
+        }
+    };
+
+    let imagefile = format!(
+        "{}/{}_thumb.jpg",
+        &tmpdir,
+        format_forbidden_char(&program.name)
+    );
+    let mut img = match std::fs::File::create(&imagefile) {
+        Ok(f) => f,
+        Err(e) => {
+            let err_msg = format!("Failed to create image file {}: {}", imagefile, e);
+            error!("{}", err_msg);
+            return Err(err_msg);
+        }
+    };
+
+    match program.pc_image_url {
+        Some(ref n) => match reqwest::blocking::get(n) {
+            Ok(mut m) => {
+                if let Err(e) = m.copy_to(&mut img) {
+                    let err_msg = format!(
+                        "Failed to download and save image for {}: {}",
+                        program.name, e
+                    );
+                    error!("{}", err_msg);
+                    return Err(err_msg);
+                }
+            }
+            Err(e) => {
+                debug!("{:#?}", program);
+                let err_msg = format!("Failed to download image for {}: {}", program.name, e);
+                error!("{}", err_msg);
+                return Err(err_msg);
+            }
+        },
+        None => {
+            let err_msg = format!("Image not downloadable for program: {}.", program.name);
+            error!("{}", err_msg);
+            return Err(err_msg);
+        }
+    };
+
+    // create file_name
+    let filename = generate_episode_filename(&program.name, program.latest_episode_name.as_deref());
+    let output_path = format!("{}/{}", archive_path, &filename);
+    let working_path = format!("{}/{}", tmpdir, &filename);
+
+    debug!("name:{}\n\tid:{:?}\n", program.name, video.live_flg);
+    let url = video.get_m3u8_url(); // This can panic inside if get_api or json parsing fails.
+
+    debug!("title: {},url\"{}\"", program.name, url);
+
+    let path = Path::new(&output_path);
+    if path.exists() {
+        warn!("{} already exists, skipping", &output_path);
+        return Ok(()); // Not an error, successfully skipped.
+    }
+
+    let ffmpeg_output = Command::new("ffmpeg")
+        .arg("-loglevel")
+        .arg("warning")
+        .arg("-i")
+        .arg(&imagefile)
+        .arg("-i")
+        .arg(&url)
+        .arg("-vcodec")
+        .arg("copy")
+        .arg("-acodec")
+        .arg("copy")
+        .arg("-bsf:a")
+        .arg("aac_adtstoasc")
+        .arg(&working_path)
+        .output();
+
+    match ffmpeg_output {
+        Ok(output) => {
+            if output.status.success() {
+                let options = CopyOptions::new();
+                match fs_extra::file::move_file(&working_path, &output_path, &options) {
+                    Ok(_) => {
+                        info!("Successfully archived {}", output_path);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        let err_msg = format!(
+                            "Failed to move file from {} to {}: {}",
+                            working_path, output_path, e
+                        );
+                        error!("{}", err_msg);
+                        Err(err_msg)
+                    }
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let err_msg = format!("ffmpeg command failed for {}: {}", program.name, stderr);
+                error!("{}", err_msg);
+                Err(err_msg)
+            }
+        }
+        Err(e) => {
+            let err_msg = format!("Failed to execute ffmpeg for {}: {}", program.name, e);
+            error!("{}", err_msg);
+            Err(err_msg)
+        }
+    }
+}
+
+static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
+
+/// Records Hibiki radio programs.
+///
+/// This function fetches the list of programs, checks for new episodes,
+/// and downloads them using ffmpeg.
+pub fn record() {
+    // Get the base archive path from environment variable. This is critical.
+    let archive_base_path = match env::var(RS_NET_ARCHIVE_PATH) {
+        Ok(path_str) => path_str,
+        Err(e) => {
+            error!(
+                "Critical: {} environment variable not set: {}",
+                RS_NET_ARCHIVE_PATH, e
+            );
+            panic!(
+                "Critical: {} environment variable not set: {}",
+                RS_NET_ARCHIVE_PATH, e
+            );
+        }
+    };
+
+    let page = 1; // Assuming page is fixed at 1 as per original logic
+    let programs_url = format!(
+        "https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={}",
+        page
+    );
+
+    info!("Fetching program list from {}", programs_url);
+    let programs: Vec<HibikiJson> = match fetch_and_parse(&programs_url) {
+        Ok(p) => p,
+        Err(e) => {
+            error!("Failed to fetch or parse program list: {}", e);
+            panic!("Failed to fetch or parse program list: {}", e);
+        }
+    };
+
+    info!(
+        "Fetched {} programs. Starting processing...",
+        programs.len()
+    );
+    for program in programs {
+        info!("Processing program: {}", program.name);
+        match process_program(&program, &archive_base_path) {
+            Ok(()) => info!("Successfully processed program: {}", program.name),
+            Err(e) => error!("Failed to process program {}: {}", program.name, e),
+        }
+    }
+    info!("Finished processing all programs.");
 }
