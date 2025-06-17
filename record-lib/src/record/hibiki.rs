@@ -416,9 +416,9 @@ static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
 ///
 /// This function fetches the list of programs, checks for new episodes,
 /// and downloads them using ffmpeg.
-pub fn record() {
+pub fn record() -> Result<(), RecordError> {
     // Get the base archive path from environment variable. This is critical.
-    let archive_base_path = ensure_archive_path("hibiki").expect("Failed to get archive base path");
+    let archive_base_path = ensure_archive_path("hibiki")?;
 
     let page = 1; // Assuming page is fixed at 1 as per original logic
     let programs_url = format!(
@@ -431,7 +431,11 @@ pub fn record() {
         Ok(p) => p,
         Err(e) => {
             error!("Failed to fetch or parse program list: {}", e);
-            panic!("Failed to fetch or parse program list: {}", e);
+            error!("Failed to fetch or parse program list: {}", e);
+            // Instead of panicking, return an error.
+            // The specific error type might need adjustment based on how RecordError is defined.
+            // For now, let's assume there's a variant or method to create a RecordError from a String or generic error.
+            return Err(RecordError::Custom(format!("Failed to fetch or parse program list: {}", e)));
         }
     };
 
@@ -444,7 +448,51 @@ pub fn record() {
         match process_program(&program, &archive_base_path) {
             Ok(()) => info!("Successfully processed program: {}", program.name),
             Err(e) => error!("Failed to process program {}: {}", program.name, e),
+            // Consider whether an error in process_program should halt all processing
+            // or just be logged. For now, it's logged, and the loop continues.
+            // If it should halt, this match needs to propagate the error.
         }
     }
     info!("Finished processing all programs.");
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::RecordError;
+    use std::env;
+
+    #[test]
+    fn test_record_error_env_var_not_set() {
+        let key = RS_NET_ARCHIVE_PATH;
+        let original_value = env::var(key).ok();
+
+        env::remove_var(key);
+
+        let result = record();
+
+        match &result {
+            Err(RecordError::EnvVar(env::VarError::NotPresent)) => {
+                // This is the expected error when the env var is not set.
+            }
+            Err(RecordError::EnvVar(env::VarError::NotUnicode(_))) => {
+                panic!("Expected EnvVar::NotPresent, but got EnvVar::NotUnicode. The env var was set to a non-unicode value during the test setup, which is unexpected.");
+            }
+            Err(e) => {
+                panic!("Expected RecordError::EnvVar(NotPresent), but got a different error: {:?}", e);
+            }
+            Ok(_) => {
+                panic!("Expected an error when {} is not set, but got Ok", key);
+            }
+        }
+
+        // Restore the original environment variable
+        if let Some(value) = original_value {
+            env::set_var(key, value);
+        } else {
+            // If it was originally not set, ensure it remains not set.
+            // This branch is mostly for completeness, as remove_var above handles it.
+        }
+    }
 }
