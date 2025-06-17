@@ -123,7 +123,6 @@ impl Ag {
         }
     }
 
-
     /// Parses the HTML content of the AGQR daily program schedule page and extracts program information.
     ///
     /// # Arguments

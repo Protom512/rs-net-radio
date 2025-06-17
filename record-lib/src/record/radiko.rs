@@ -134,7 +134,7 @@ pub struct StreamingUrl {
     // media_url_path: String,
     // playlist_url_path: String,
 }
-#[derive(Debug, PartialEq, Clone)] 
+#[derive(Debug, PartialEq, Clone)]
 pub struct RecordRadiko {
     pub title: String, // Made public for access in main.rs closure
     pub ft: DateTime<Local>,
@@ -268,7 +268,6 @@ impl RecordRadiko {
         })?;
 
         Ok(output.status)
-
     }
 
     fn auth1() -> Result<Response, RecordError> {

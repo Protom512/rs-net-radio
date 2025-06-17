@@ -64,9 +64,6 @@ pub struct OnsenProgram {
     // "updated"
 }
 impl OnsenProgram {
-
-
-
     /// Records the episodes of the Onsen program.
     ///
     /// This function iterates through the program's contents (episodes) and downloads
@@ -76,7 +73,7 @@ impl OnsenProgram {
         let archive_path = ensure_archive_path("onsen")?;
 
         let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
-        info!("working path: {}", tmpdir);    
+        info!("working path: {}", tmpdir);
 
         for contents in &self.contents {
             match &contents.streaming_url {

@@ -60,7 +60,6 @@ pub struct HibikiJson {
     name: String,
 }
 
-
 /// Fetches data from the Hibiki API.
 ///
 /// # Arguments
