@@ -44,17 +44,33 @@ struct HibikiEpisode {
     episode: Option<HibikiEpisodeId>,
 }
 
+/// Represents the JSON structure for a Hibiki radio program.
 #[derive(Deserialize, Debug)]
 pub struct HibikiJson {
+    /// The access ID of the program.
     access_id: String,
     //cast: String,
+    /// The ID of the latest episode.
     latest_episode_id: Option<u32>,
+    /// The name of the latest episode.
     latest_episode_name: Option<String>,
+    /// The URL of the program's PC image.
     pc_image_url: Option<String>,
+    /// The name of the program.
     name: String,
 }
+
+
+/// Fetches data from the Hibiki API.
+///
+/// # Arguments
+///
+/// * `url` - The API endpoint URL.
+///
+/// # Returns
+///
+/// A `reqwest::Result` containing the API response.
 pub fn get_api(url: &str) -> Result<Response, RecordError> {
-    // Changed from reqwest::Result
     let client = reqwest::blocking::Client::new();
     client
         .get(url)

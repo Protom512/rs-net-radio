@@ -23,10 +23,14 @@ pub fn get_html_from_url(url: &str) -> Result<reqwest::blocking::Response, Recor
     }
 }
 
+/// Represents an AGQR program recording task.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ag {
+    /// The title of the program.
     pub title: String,
+    /// The start date and time of the program.
     pub start_datetime: DateTime<Local>,
+    /// The end date and time of the program.
     pub end_datetime: DateTime<Local>,
 }
 
@@ -96,6 +100,17 @@ impl Ag {
         Ok(status)
     }
 
+    /// Creates a new `Ag` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `title` - The title of the program.
+    /// * `start_datetime` - The start date and time of the program.
+    /// * `end_datetime` - The end date and time of the program.
+    ///
+    /// # Returns
+    ///
+    /// A new `Ag` instance.
     pub fn new(
         title: &str,
         start_datetime: &DateTime<Local>,
@@ -107,8 +122,30 @@ impl Ag {
             end_datetime: *end_datetime,
         }
     }
-    // Removed old get_html() function
-    pub fn html_parse(html_body: &str) -> Vec<Ag> {
+
+
+    /// Parses the HTML content of the AGQR daily program schedule page and extracts program information.
+    ///
+    /// # Arguments
+    ///
+    /// * `get_result` - A `reqwest::blocking::Response` containing the HTML content.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `Ag` instances representing the programs in the schedule.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HTML content cannot be parsed or if expected elements are not found.
+    pub fn html_parse(get_result: reqwest::blocking::Response) -> Vec<Ag> {
+        let body = match get_result.text() {
+            Ok(n) => n,
+            Err(e) => {
+                error!("{}", e);
+                panic!("{}", e);
+            }
+        };
+
         let selector_fragment =
             scraper::Selector::parse("article.dailyProgram-itemBox.ag ").unwrap();
         let selector = scraper::Selector::parse(" div.dailyProgram-itemContainer >div.js-readmore> div.dailyProgram-itemDetail > p.dailyProgram-itemTitle >a").unwrap();
@@ -157,6 +194,11 @@ impl Ag {
         arr
     }
 
+    /// Initializes a list of `Ag` tasks by fetching and parsing the AGQR daily program schedule.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `Ag` instances representing the programs in the schedule.
     pub fn init() -> Vec<Ag> {
         match get_html_from_url(AG_PROGRAM_URL) {
             // Call the new function
