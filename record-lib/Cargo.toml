@@ -21,7 +21,7 @@ serde_derive = "1.0.152"
 serde_json = "1.0.96"
 tempdir = "0.3.6"
 tempfile = "3.5.0"
-xml-rs = "0.8.4"
+xml-rs = "0.8.26"
 
 [dev-dependencies]
 mockito = "1.7.0"
