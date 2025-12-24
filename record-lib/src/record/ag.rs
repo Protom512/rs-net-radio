@@ -1,4 +1,4 @@
-use crate::utils::{ensure_archive_path, RecordError};
+use crate::utils::{ensure_archive_path, sanitize_filename, RecordError};
 use chrono::{Date, DateTime, Duration, Local};
 use fs_extra;
 use fs_extra::file::CopyOptions;
@@ -48,7 +48,7 @@ impl Ag {
         let file_name = format!(
             "{}_{}.mp4",
             self.start_datetime.format("%Y%m%d_%H%M%S"),
-            self.title
+            sanitize_filename(&self.title)
         );
         let working_path = format!("{}/{}", &tmpdir, &file_name);
         info!("Title: {}", self.title);
