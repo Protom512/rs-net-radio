@@ -1,4 +1,4 @@
-use crate::utils::{ensure_archive_path, RecordError};
+use crate::utils::{ensure_archive_path, sanitize_filename, RecordError};
 use chrono::{Date, DateTime, Duration, Local};
 use fs_extra;
 use fs_extra::file::CopyOptions;
@@ -45,10 +45,11 @@ impl Ag {
         let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
         info!("working path: {}", tmpdir); // Moved info log after ok_or
 
+        let sanitized_title = sanitize_filename(&self.title);
         let file_name = format!(
             "{}_{}.mp4",
             self.start_datetime.format("%Y%m%d_%H%M%S"),
-            self.title
+            sanitized_title
         );
         let working_path = format!("{}/{}", &tmpdir, &file_name);
         info!("Title: {}", self.title);
