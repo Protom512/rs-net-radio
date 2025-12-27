@@ -181,9 +181,14 @@ impl Ag {
                 end_offset_h = Duration::hours(end_h);
                 end_offset_m = Duration::minutes(end_m);
             }
-            let start_hms = local_date.and_hms_opt(0, 0, 0).unwrap() + start_offset_h + start_offset_m;
+            let start_hms =
+                local_date.and_hms_opt(0, 0, 0).unwrap() + start_offset_h + start_offset_m;
             let end_hms = local_date.and_hms_opt(0, 0, 0).unwrap() + end_offset_h + end_offset_m;
-            arr.push(Ag::new(title, &start_hms.and_local_timezone(Local).unwrap(), &end_hms.and_local_timezone(Local).unwrap()));
+            arr.push(Ag::new(
+                title,
+                &start_hms.and_local_timezone(Local).unwrap(),
+                &end_hms.and_local_timezone(Local).unwrap(),
+            ));
         }
         arr
     }
