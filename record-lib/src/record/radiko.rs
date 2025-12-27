@@ -1,7 +1,8 @@
 use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
-                                                                         // Assuming this is a custom module for base64 encoding
+use base64::Engine;
+// Assuming this is a custom module for base64 encoding
 use chrono;
-use chrono::{DateTime, Local, NaiveDate, TimeZone};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 use log::{debug, error, info};
 use reqwest::blocking::{Client, Response};
 use serde::{Deserialize, Serialize};
@@ -217,7 +218,7 @@ impl RecordRadiko {
                 radiko_authkey_value.len()
             )));
         }
-        let partial_key = base64::encode(&radiko_authkey_value[keyoffset..keyoffset + key_length]);
+        let partial_key = base64::engine::general_purpose::STANDARD.encode(&radiko_authkey_value[keyoffset..keyoffset + key_length]);
         let _resp_auth2 = RecordRadiko::auth2(authtoken, partial_key)?;
         debug!("{:#?}\n", &_resp_auth2.text()?); // Propagate error from text()
 
@@ -423,8 +424,8 @@ impl Program<'_> {
     ///
     /// Panics if the time string cannot be parsed.
     pub fn parse_time(&self) -> DateTime<Local> {
-        match Local.datetime_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
-            Ok(m) => m,
+        match NaiveDateTime::parse_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
+            Ok(m) => m.and_local_timezone(Local).unwrap(),
             Err(e) => panic!("{:#?}", e),
         }
     }
@@ -473,7 +474,7 @@ fn pass_auth2() {
         .parse()
         .expect("Failed to parse to integer");
     let partial_key =
-        base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
+        base64::engine::general_purpose::STANDARD.encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
     assert_eq!(
         RecordRadiko::auth2(authtoken, partial_key)
             .unwrap()

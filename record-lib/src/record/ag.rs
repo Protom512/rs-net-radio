@@ -1,5 +1,5 @@
 use crate::utils::{ensure_archive_path, RecordError};
-use chrono::{Date, DateTime, Duration, Local};
+use chrono::{DateTime, Duration, Local, NaiveDate};
 use fs_extra;
 use fs_extra::file::CopyOptions;
 use log::{error, info};
@@ -154,7 +154,7 @@ impl Ag {
         let mut arr = Vec::<Ag>::new();
         let mut datetime_str;
         let now: DateTime<Local> = Local::now();
-        let local_date: Date<Local> = now.date();
+        let local_date: NaiveDate = now.date_naive();
         for i in elements {
             let mut start_offset_h: Duration = Duration::hours(0);
             let mut start_offset_m: Duration = Duration::minutes(0);
@@ -181,9 +181,9 @@ impl Ag {
                 end_offset_h = Duration::hours(end_h);
                 end_offset_m = Duration::minutes(end_m);
             }
-            let start_hms = local_date.and_hms(0, 0, 0) + start_offset_h + start_offset_m;
-            let end_hms = local_date.and_hms(0, 0, 0) + end_offset_h + end_offset_m;
-            arr.push(Ag::new(title, &start_hms, &end_hms));
+            let start_hms = local_date.and_hms_opt(0, 0, 0).unwrap() + start_offset_h + start_offset_m;
+            let end_hms = local_date.and_hms_opt(0, 0, 0).unwrap() + end_offset_h + end_offset_m;
+            arr.push(Ag::new(title, &start_hms.and_local_timezone(Local).unwrap(), &end_hms.and_local_timezone(Local).unwrap()));
         }
         arr
     }

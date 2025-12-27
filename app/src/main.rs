@@ -1,5 +1,5 @@
 use chrono::Timelike;
-use chrono::{offset::TimeZone, DateTime, Datelike, Duration, Local, Utc};
+use chrono::{DateTime, Datelike, Duration, Local, NaiveDateTime, TimeZone, Utc};
 use env_logger::Builder;
 use log::{debug, error, info};
 use std::error::Error; //use log::LevelFilter;
@@ -193,9 +193,11 @@ async fn main() {
         init_today.day()
     );
 
-    let init_dt: DateTime<Local> = Local
-        .datetime_from_str(&init_string, "%Y/%m/%d %H:%M:%S")
-        .expect("Failed to parse datetime");
+    let init_dt: DateTime<Local> =
+        NaiveDateTime::parse_from_str(&init_string, "%Y/%m/%d %H:%M:%S")
+            .unwrap()
+            .and_local_timezone(Local)
+            .unwrap();
 
     if current_time.timestamp() > init_dt.timestamp() {
         let current_shot = current_time + Duration::seconds(3);
