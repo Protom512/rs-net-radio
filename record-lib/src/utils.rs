@@ -84,6 +84,7 @@ pub fn ensure_archive_path(service_name: &str) -> Result<String, RecordError> {
 /// Sanitizes a filename by replacing characters forbidden by common filesystems.
 pub fn sanitize_filename(filename: &str) -> String {
     filename
+        .replace("..", "．．")
         .replace('\\', "￥")
         .replace('/', "／")
         .replace(':', "：")
@@ -123,4 +124,11 @@ mod tests {
 
     // Note: Testing ensure_archive_path requires filesystem interaction and environment variables,
     // which is more suited for integration tests or requires mocking.
+    #[test]
+    fn test_sanitize_filename_path_traversal() {
+        assert_eq!(
+            sanitize_filename("../../../etc/passwd"),
+            "．．／．．／．．／etc／passwd"
+        );
+    }
 }
