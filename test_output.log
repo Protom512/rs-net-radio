@@ -1,0 +1,147 @@
+   Compiling getrandom v0.2.16
+   Compiling syn v1.0.107
+   Compiling log v0.4.27
+   Compiling tokio v1.45.1
+   Compiling rand_core v0.6.4
+   Compiling tracing v0.1.37
+   Compiling rand_chacha v0.3.1
+   Compiling want v0.3.0
+   Compiling num-traits v0.2.15
+   Compiling rand v0.8.5
+   Compiling phf_generator v0.11.3
+   Compiling phf_codegen v0.11.3
+   Compiling phf_macros v0.11.3
+   Compiling phf_generator v0.10.0
+   Compiling string_cache_codegen v0.5.2
+   Compiling markup5ever v0.14.1
+   Compiling phf v0.11.3
+   Compiling selectors v0.26.0
+   Compiling cssparser v0.34.0
+   Compiling num-integer v0.1.45
+   Compiling chrono v0.4.24
+   Compiling html5ever v0.29.1
+   Compiling tokio-util v0.7.7
+   Compiling h2 v0.4.10
+   Compiling openssl-macros v0.1.0
+   Compiling openssl v0.10.55
+   Compiling thiserror-impl v1.0.38
+   Compiling derive_more v0.99.17
+   Compiling tower v0.5.2
+   Compiling tower-http v0.6.6
+   Compiling thiserror v1.0.38
+   Compiling serde-xml-rs v0.8.1
+   Compiling hyper v1.6.0
+   Compiling native-tls v0.2.11
+   Compiling tokio-native-tls v0.3.1
+   Compiling scraper v0.23.1
+   Compiling m3u8-rs v6.0.0
+   Compiling hyper-util v0.1.14
+   Compiling hyper-tls v0.6.0
+   Compiling mockito v1.7.0
+   Compiling reqwest v0.12.20
+   Compiling record-lib v0.1.0 (/app/record-lib)
+warning: use of deprecated struct `chrono::Date`: Use `NaiveDate` or `DateTime<Tz>` instead
+ --> record-lib/src/record/ag.rs:2:14
+  |
+2 | use chrono::{Date, DateTime, Duration, Local};
+  |              ^^^^
+  |
+  = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated struct `chrono::Date`: Use `NaiveDate` or `DateTime<Tz>` instead
+   --> record-lib/src/record/ag.rs:158:25
+    |
+158 |         let local_date: Date<Local> = now.date();
+    |                         ^^^^
+
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> record-lib/src/record/radiko.rs:220:35
+    |
+220 |         let partial_key = base64::encode(&radiko_authkey_value[keyoffset..keyoffset + key_length]);
+    |                                   ^^^^^^
+
+warning: use of deprecated method `chrono::DateTime::<Tz>::date`: Use `date_naive()` instead
+   --> record-lib/src/record/ag.rs:158:43
+    |
+158 |         let local_date: Date<Local> = now.date();
+    |                                           ^^^^
+
+warning: use of deprecated method `chrono::Date::<Tz>::and_hms`: Use and_hms_opt() instead
+   --> record-lib/src/record/ag.rs:185:40
+    |
+185 |             let start_hms = local_date.and_hms(0, 0, 0) + start_offset_h + start_offset_m;
+    |                                        ^^^^^^^
+
+warning: use of deprecated method `chrono::Date::<Tz>::and_hms`: Use and_hms_opt() instead
+   --> record-lib/src/record/ag.rs:186:38
+    |
+186 |             let end_hms = local_date.and_hms(0, 0, 0) + end_offset_h + end_offset_m;
+    |                                      ^^^^^^^
+
+warning: static `RS_NET_ARCHIVE_PATH` is never used
+   --> record-lib/src/record/hibiki.rs:413:8
+    |
+413 | static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
+    |        ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parse_date` is never used
+   --> record-lib/src/record/radiko.rs:511:8
+    |
+510 | impl ProgDate {
+    | ------------- method in this implementation
+511 |     fn parse_date(&self) -> NaiveDate {
+    |        ^^^^^^^^^^
+
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> record-lib/src/record/radiko.rs:476:17
+    |
+476 |         base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
+    |                 ^^^^^^
+
+warning: `record-lib` (lib) generated 8 warnings
+warning: `record-lib` (lib test) generated 8 warnings (7 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 20.91s
+     Running unittests src/lib.rs (target/debug/deps/record_lib-4ba1917a3342a027)
+
+running 11 tests
+test record::hibiki::pass_format_char ... ok
+test record::radiko::false_validate_program_housou_kyushi ... ok
+test record::radiko::false_validate_program_bangumi_kyushi ... ok
+test record::hibiki::test_generate_episode_filename ... ok
+test utils::tests::test_sanitize_filename_basic ... ok
+test utils::tests::test_sanitize_filename_empty ... ok
+test record::radiko::test_parse_date ... ok
+test utils::tests::test_sanitize_filename_no_forbidden_chars ... ok
+test utils::tests::test_sanitize_filename_path_traversal ... ok
+test record::radiko::pass_auth1 ... ok
+test record::radiko::pass_auth2 ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.27s
+
+     Running tests/ag.rs (target/debug/deps/ag-902a9bf2ada3730d)
+
+running 4 tests
+test check_new ... ok
+test fail_record ... ok
+test check_connection_mocked ... FAILED
+test test_init_with_local_html ... ok
+
+failures:
+
+---- check_connection_mocked stdout ----
+
+thread 'check_connection_mocked' (8008) panicked at record-lib/tests/ag.rs:25:13:
+assertion `left == right` failed
+  left: "{\"response\": \"mock data\"}"
+ right: "mocked html content"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    check_connection_mocked
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `-p record-lib --test ag`
