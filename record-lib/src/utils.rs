@@ -3,19 +3,27 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::{env, fs, path::Path}; // Alias to avoid conflict
 
+/// Represents an error that can occur during the recording process.
 #[derive(Debug)]
 pub enum RecordError {
+    /// An I/O error.
     Io(std::io::Error),
+    /// An error related to environment variables.
     EnvVar(std::env::VarError),
+    /// An error from the `reqwest` HTTP client.
     Reqwest(reqwest::Error),
+    /// A JSON serialization/deserialization error.
     SerdeJson(serde_json::Error),
     // SerdeXml(serde_xml_rs::Error), // Add if direct usage occurs
+    /// An error representing a failure in an external command.
     CommandFailed {
         command: String,
         exit_code: Option<i32>,
         stderr: String,
     },
+    /// An error for when the temporary directory cannot be found.
     TempDir,
+    /// A catch-all for other types of errors.
     Other(String),
 }
 
