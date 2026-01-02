@@ -135,10 +135,7 @@ mod tests {
         // This test ensures that path traversal sequences are neutralized.
         // The resulting filename may look unusual, but it is safe because the ".."
         // components are removed, preventing movement up the directory tree.
-        assert_eq!(
-            sanitize_filename("../../etc/passwd"),
-            "／／etc／passwd"
-        );
+        assert_eq!(sanitize_filename("../../etc/passwd"), "／／etc／passwd");
     }
 
     // Note: Testing ensure_archive_path requires filesystem interaction and environment variables,
