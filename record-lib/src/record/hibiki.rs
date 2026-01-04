@@ -104,7 +104,6 @@ impl HibikiVideo {
     }
 }
 
-
 #[test]
 fn test_generate_episode_filename() {
     assert_eq!(
@@ -270,11 +269,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         }
     };
 
-    let imagefile = format!(
-        "{}/{}_thumb.jpg",
-        &tmpdir,
-        sanitize_filename(&program.name)
-    );
+    let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, sanitize_filename(&program.name));
     let mut img = match std::fs::File::create(&imagefile) {
         Ok(f) => f,
         Err(e) => {

@@ -78,11 +78,8 @@ impl OnsenProgram {
         for contents in &self.contents {
             match &contents.streaming_url {
                 Some(n) => {
-                    let file_name = format!(
-                        "{}_{}.mp4",
-                        &self.title.as_str(),
-                        &contents.title.as_str()
-                    );
+                    let file_name =
+                        format!("{}_{}.mp4", &self.title.as_str(), &contents.title.as_str());
                     let file_name = sanitize_filename(&file_name);
                     let output_path = format!("{}/{}", tmpdir, &file_name);
                     let archive_file = format!("{}/{}", &archive_path, &file_name);

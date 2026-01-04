@@ -119,10 +119,7 @@ mod tests {
 
     #[test]
     fn test_sanitize_filename_path_traversal() {
-        assert_eq!(
-            sanitize_filename("../../etc/passwd"),
-            "‥／‥／etc／passwd"
-        );
+        assert_eq!(sanitize_filename("../../etc/passwd"), "‥／‥／etc／passwd");
     }
 
     #[test]
