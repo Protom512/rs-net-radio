@@ -102,6 +102,7 @@ pub fn sanitize_filename(filename: &str) -> String {
         .replace('>', "＞")
         .replace('|', "｜")
         .replace('`', "`")
+        .replace("..", "‥")
 }
 
 #[cfg(test)]
@@ -113,6 +114,14 @@ mod tests {
         assert_eq!(
             sanitize_filename("Fate/Test: *?\"<>|`"),
             "Fate／Test： ＊？”＜＞｜`"
+        );
+    }
+
+    #[test]
+    fn test_sanitize_filename_path_traversal() {
+        assert_eq!(
+            sanitize_filename("../../etc/passwd"),
+            "‥／‥／etc／passwd"
         );
     }
 
