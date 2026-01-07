@@ -102,6 +102,7 @@ pub fn sanitize_filename(filename: &str) -> String {
         .replace('>', "＞")
         .replace('|', "｜")
         .replace('`', "`")
+        .replace("..", "．．")
 }
 
 #[cfg(test)]
@@ -127,6 +128,14 @@ mod tests {
     #[test]
     fn test_sanitize_filename_empty() {
         assert_eq!(sanitize_filename(""), "");
+    }
+
+    #[test]
+    fn test_sanitize_filename_path_traversal() {
+        assert_eq!(
+            sanitize_filename("../../../../../etc/passwd"),
+            "．．／．．／．．／．．／．．／etc／passwd"
+        );
     }
 
     // Note: Testing ensure_archive_path requires filesystem interaction and environment variables,
