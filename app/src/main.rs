@@ -5,7 +5,6 @@ use log::{debug, error, info};
 use std::error::Error; //use log::LevelFilter;
 use std::io::Write;
 extern crate record_lib;
-use record_lib::record::ag::Ag;
 use record_lib::record::onsen::OnsenProgram;
 
 use record_lib::record::hibiki::record;
@@ -68,61 +67,6 @@ fn job_radiko(init_schedule: &str, ch: &'static str) -> Result<Job, Box<dyn Erro
     })
     .map_err(Box::from)
 }
-fn job_ag(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
-    info!("running job_ag");
-    debug!("{}", &init_schedule);
-    let current_time = Local::now();
-    Job::new(init_schedule, move |_uuid, _l| {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async move {
-            let record_sched = JobScheduler::new().await.unwrap(); // Removed mut
-            let arr: Vec<Ag> = Ag::init();
-
-            for ag in arr {
-                let start = ag.start_datetime + Duration::seconds(-15);
-                if current_time.timestamp() < start.timestamp() {
-                    let schedule = format!(
-                        "{} {} {} {} {} * {}",
-                        start.with_timezone(&Utc).second(),
-                        start.with_timezone(&Utc).minute(),
-                        start.with_timezone(&Utc).hour(),
-                        start.with_timezone(&Utc).day(),
-                        start.with_timezone(&Utc).month(),
-                        start.with_timezone(&Utc).year()
-                    );
-                    let ag_clone = ag.clone();
-                    let job = Job::new(schedule.as_str(), move |_uuid2, _l2| {
-                        info!("Executing AG record for: {}", ag_clone.title);
-                        match ag_clone.clone().record() {
-                            // Added clone here
-                            Ok(status) => {
-                                if status.success() {
-                                    info!(
-                                        "AG Record successful for {}: {}",
-                                        ag_clone.title, status
-                                    );
-                                } else {
-                                    error!(
-                                        "AG Record command failed for {}: {}",
-                                        ag_clone.title, status
-                                    );
-                                }
-                            }
-                            Err(e) => {
-                                error!("AG Record execution error for {}: {}", ag_clone.title, e);
-                            }
-                        }
-                    })
-                    .unwrap();
-                    record_sched.add(job).await.unwrap(); // Added .await and unwrap
-                }
-            }
-            let _res = record_sched.start().await;
-        });
-    })
-    .map_err(Box::from)
-}
-
 fn job_onsen(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
     info!("running job_onsen");
     debug!("{}", &init_schedule);
@@ -208,12 +152,7 @@ async fn main() {
             current_shot.with_timezone(&Utc).month(),
             current_shot.with_timezone(&Utc).year()
         );
-
-        let job = job_ag(schedule.as_str()).unwrap();
-        sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
     }
-    let job = job_ag(init_schedule_str).unwrap();
-    sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
 
     if current_time.timestamp() > init_dt.timestamp() {
         let current_shot = current_time + Duration::seconds(3);
