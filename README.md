@@ -6,7 +6,6 @@ port of yayugu/net-radio-archive
 - [@protom512](https://www.github.com/protom512)
 
 ## current status
-- [x] 超A&G+
 - [x] onsen
 - [x] 響Radio (Partial implementation, under review)
 - [x] Radiko (Partial implementation, under review)
@@ -16,7 +15,6 @@ port of yayugu/net-radio-archive
 This project requires the following external command-line tools to be installed on your system:
 
 - **ffmpeg:** Used for processing and saving video/audio streams.
-- **streamlink:** Used by the 超A&G+ module for capturing streams.
 
 Please ensure these are installed and accessible in your system's PATH.
 

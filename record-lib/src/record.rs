@@ -1,5 +1,3 @@
-/// Module for handling agqr.jp radio recordings.
-pub mod ag;
 /// Module for handling hibiki-radio.jp radio recordings.
 pub mod hibiki;
 /// Module for handling onsen.ag radio recordings.
