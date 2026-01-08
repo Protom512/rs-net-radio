@@ -152,7 +152,6 @@ async fn main() {
             current_shot.with_timezone(&Utc).month(),
             current_shot.with_timezone(&Utc).year()
         );
-
     }
 
     if current_time.timestamp() > init_dt.timestamp() {
