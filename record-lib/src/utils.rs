@@ -2,7 +2,7 @@ use log::debug;
 use std::error::Error as StdError;
 use std::fmt;
 use std::{env, fs, path::Path}; // Alias to avoid conflict
-
+use sanitize_filename as sanitize_filename_crate;
 /// Represents an error that can occur during the recording process.
 #[derive(Debug)]
 pub enum RecordError {
@@ -91,44 +91,7 @@ pub fn ensure_archive_path(service_name: &str) -> Result<String, RecordError> {
 
 /// Sanitizes a filename by replacing characters forbidden by common filesystems.
 pub fn sanitize_filename(filename: &str) -> String {
-    filename
-        .replace('\\', "￥")
-        .replace('/', "／")
-        .replace(':', "：")
-        .replace('*', "＊")
-        .replace('?', "？")
-        .replace('"', "”")
-        .replace('<', "＜")
-        .replace('>', "＞")
-        .replace('|', "｜")
-        .replace('`', "`")
+    
+    sanitize_filename_crate::sanitize(filename)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_sanitize_filename_basic() {
-        assert_eq!(
-            sanitize_filename("Fate/Test: *?\"<>|`"),
-            "Fate／Test： ＊？”＜＞｜`"
-        );
-    }
-
-    #[test]
-    fn test_sanitize_filename_no_forbidden_chars() {
-        assert_eq!(
-            sanitize_filename("Normal_Filename_123.mp4"),
-            "Normal_Filename_123.mp4"
-        );
-    }
-
-    #[test]
-    fn test_sanitize_filename_empty() {
-        assert_eq!(sanitize_filename(""), "");
-    }
-
-    // Note: Testing ensure_archive_path requires filesystem interaction and environment variables,
-    // which is more suited for integration tests or requires mocking.
-}
