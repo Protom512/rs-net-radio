@@ -1,8 +1,8 @@
 use log::debug;
+use sanitize_filename as sanitize_filename_crate;
 use std::error::Error as StdError;
 use std::fmt;
 use std::{env, fs, path::Path}; // Alias to avoid conflict
-use sanitize_filename as sanitize_filename_crate;
 /// Represents an error that can occur during the recording process.
 #[derive(Debug)]
 pub enum RecordError {
@@ -91,7 +91,5 @@ pub fn ensure_archive_path(service_name: &str) -> Result<String, RecordError> {
 
 /// Sanitizes a filename by replacing characters forbidden by common filesystems.
 pub fn sanitize_filename(filename: &str) -> String {
-    
     sanitize_filename_crate::sanitize(filename)
 }
-
