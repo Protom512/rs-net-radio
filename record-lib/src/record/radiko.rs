@@ -1,21 +1,16 @@
+use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
+                                                                         // Assuming this is a custom module for base64 encoding
 use chrono;
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
-// use http::Uri;
 use log::{debug, error, info};
 use reqwest::blocking::{Client, Response};
 use serde::{Deserialize, Serialize};
-// use serde_json::to_string;
 
 use fs_extra::file::CopyOptions;
 use serde_xml_rs::from_str;
 use std::borrow::Cow;
 use std::env::temp_dir;
-use std::path::Path;
 use std::process::{Command, ExitStatus};
-use std::{env, fs};
-//
-// #[macro_use]
-// extern crate serde_derive;
 
 /// Represents the overall Radiko data structure.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -134,10 +129,9 @@ pub struct StreamingUrl {
     // playlist_url_path: String,
 }
 
-/// Represents a Radiko recording task.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct RecordRadiko {
-    title: String,
+    pub title: String, // Made public for access in main.rs closure
     pub ft: DateTime<Local>,
     dur: u32,
     url: String,
@@ -182,77 +176,61 @@ impl RecordRadiko {
         debug!("{:#?}", hoge);
         hoge
     }
-    const RS_NET_ARCHIVE_PATH: &'static str = "RS_NET_ARCHIVE_PATH";
-    /// Downloads the Radiko program.
-    ///
-    /// This function performs the authentication steps and then uses ffmpeg to download the stream.
-    ///
-    /// # Returns
-    ///
-    /// The exit status of the ffmpeg command.
-    pub fn download(&self) -> ExitStatus {
-        let resp = RecordRadiko::auth1();
+
+    pub fn download(&self) -> Result<ExitStatus, RecordError> {
+        // Changed signature
+        let resp = RecordRadiko::auth1()?; // Propagate error from auth1
+
         let header_str = resp.headers();
 
         let radiko_authkey_value = String::from("bcd151073c03b352e1ef2fd66c32209da9ca0afa");
 
         let authtoken = header_str
             .get("x-radiko-authtoken")
-            .expect("Failed to get auth-token")
+            .ok_or_else(|| RecordError::Other("Missing X-Radiko-Authtoken header".to_string()))?
             .to_str()
-            .unwrap();
-        let key_length: u8 = header_str
+            .map_err(|e| RecordError::Other(format!("Invalid X-Radiko-Authtoken header: {}", e)))?;
+
+        let key_length_str = header_str
             .get("x-radiko-keylength")
-            .expect("Failed to get keylength")
+            .ok_or_else(|| RecordError::Other("Missing X-Radiko-Keylength header".to_string()))?
             .to_str()
-            .unwrap()
-            .parse()
-            .unwrap();
-        let keyoffset: usize = header_str
+            .map_err(|e| RecordError::Other(format!("Invalid X-Radiko-Keylength header: {}", e)))?;
+        let key_length: usize = key_length_str.parse().map_err(|e| {
+            RecordError::Other(format!("Failed to parse X-Radiko-Keylength: {}", e))
+        })?;
+
+        let keyoffset_str = header_str
             .get("x-radiko-keyoffset")
-            .expect("Failed to get keyoffset")
+            .ok_or_else(|| RecordError::Other("Missing X-Radiko-Keyoffset header".to_string()))?
             .to_str()
-            .unwrap()
-            .parse()
-            .expect("Failed to parse to integer");
-        // let end = u8::try_from(keyoffset + key_length).expect("Failed to convert to u8");
-        let partial_key =
-            base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
-        let resp = RecordRadiko::auth2(authtoken, partial_key);
-        debug!("{:#?}\n", &resp.text().expect("Failed to get resp body"));
+            .map_err(|e| RecordError::Other(format!("Invalid X-Radiko-Keyoffset header: {}", e)))?;
+        let keyoffset: usize = keyoffset_str.parse().map_err(|e| {
+            RecordError::Other(format!("Failed to parse X-Radiko-Keyoffset: {}", e))
+        })?;
+
+        if keyoffset + key_length > radiko_authkey_value.len() {
+            return Err(RecordError::Other(format!(
+                "Invalid slice: offset {} + length {} exceeds {}",
+                keyoffset,
+                key_length,
+                radiko_authkey_value.len()
+            )));
+        }
+        let partial_key = base64::encode(&radiko_authkey_value[keyoffset..keyoffset + key_length]);
+        let _resp_auth2 = RecordRadiko::auth2(authtoken, partial_key)?;
+        debug!("{:#?}\n", &_resp_auth2.text()?); // Propagate error from text()
 
         // get archive path
-        let archive_path = match env::var(Self::RS_NET_ARCHIVE_PATH) {
-            Ok(n) => {
-                let path = format!("{n}/radiko",);
-                debug!("{:#?}", &path);
-                if !Path::new(&path).is_dir() {
-                    match fs::create_dir_all(&path) {
-                        Ok(m) => debug!("{:?}", m),
-                        Err(e) => {
-                            error!("{}", e);
-                            panic!("{}", e);
-                        }
-                    };
-                }
-                path
-            }
-            Err(e) => panic!("$RS_NET_ARCHIVE_PATH  is not set: {}", e),
-        };
-        let tmpdir = match temp_dir().to_str() {
-            Some(m) => {
-                info!("working path: {}", m);
-                m.to_string()
-            }
-            None => {
-                panic!("cannot find tmpdir")
-            }
-        };
+        let archive_path = ensure_archive_path("radiko")?;
+
+        let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
+        info!("working path: {}", tmpdir);
 
         // create file_name
         let filename = format!("{}_{}.mp4", self.ft.format("%Y%m%d%H%M%S"), self.title);
         // format characters
-        let filename = RecordRadiko::format_forbidden_char(filename.as_str());
+        let filename = sanitize_filename(filename.as_str());
         let output_path = format!("{}/{}", archive_path, &filename);
         let working_path = format!("{}/{}", tmpdir, &filename);
 
@@ -274,108 +252,51 @@ impl RecordRadiko {
             .arg("-t")
             .arg(self.dur.to_string())
             .arg(&working_path)
-            .output()
-            .expect("Failed to execute ffmpeg");
-        let converted: String = String::from_utf8(output.stderr).unwrap();
+            .output()?;
 
-        if output.status.success() {
-            let options = CopyOptions::new();
-            fs_extra::file::move_file(&working_path, output_path, &options)
-                .expect("Failed to archive file");
-        } else {
-            error!("{}", converted);
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            error!("ffmpeg failed for {}: {}", self.title, stderr);
+            return Err(RecordError::CommandFailed {
+                command: "ffmpeg".to_string(),
+                exit_code: output.status.code(),
+                stderr,
+            });
         }
-        output.status
+
+        let options = CopyOptions::new();
+        fs_extra::file::move_file(&working_path, output_path, &options).map_err(|e| {
+            RecordError::Other(format!("Failed to move file for {}: {}", self.title, e))
+        })?;
+
+        Ok(output.status)
     }
 
-    /// Formats a filename to replace characters that are forbidden in filenames.
-    ///
-    /// # Arguments
-    ///
-    /// * `filename` - The original filename.
-    ///
-    /// # Returns
-    ///
-    /// A new string with forbidden characters replaced.
-    pub fn format_forbidden_char(filename: &str) -> String {
-        // 禁止文字(半角記号)
-        // let cannot_used_file_name = "\\/:*?`\"><|";
-        // 禁止文字(全角記号)
-        // let used_file_name = "￥／：＊？`”＞＜｜";
-        //TODO motto smart ni yaritai
-        filename
-            .replace('\\', "￥")
-            .replace('/', "／")
-            .replace('\"', "”")
-            .replace(':', "：")
-            .replace('*', "＊")
-            .replace('?', "？")
-            .replace('`', "`")
-            .replace('>', "＞")
-            .replace('<', "＜")
-    }
-    fn auth1() -> Response {
+    fn auth1() -> Result<Response, RecordError> {
+        // Changed signature
         let client = Client::new();
         let url = "https://radiko.jp/v2/api/auth1";
-        match client
+        Ok(client
             .get(url)
             .header("pragma", "no-cache")
             .header("X-Radiko-App", "pc_html5")
             .header("X-Radiko-App-Version", "0.0.1")
             .header("X-Radiko-User", "test-stream")
             .header("X-Radiko-Device", "pc")
-            .send()
-        {
-            Ok(n) => {
-                //debug!("{:#?}", n);
-                n
-            }
-            Err(e) => {
-                panic!("{}", e);
-            }
-        }
-        /*
-
-                {
-            "server": "nginx",
-            "date": "Fri, 10 Dec 2021 03:35:40 GMT",
-            "content-type": "text/plain",
-            "transfer-encoding": "chunked",
-            "connection": "keep-alive",
-            "x-radiko-apptype": "pc",
-            "x-radiko-apptype2": "pc",
-            "x-radiko-authtoken": "O_rlqtaPquyAH6sAIBGopg",
-            "x-radiko-authwait": "0",
-            "x-radiko-delay": "15",
-            "x-radiko-keylength": "16",
-            "x-radiko-keyoffset": "0",
-            "access-control-expose-headers": "X-Radiko-AuthToken, X-Radiko-Partialkey, X-Radiko-AppType, X-Radiko-AuthWait, X-Radiko-Delay, X-Radiko-KeyLength, X-Radiko-KeyOffset, X-Radiko-SubStation",
-            "access-control-allow-credentials": "true",
-        }
-
-
-                */
+            .send()?) // Propagate error
     }
-    fn auth2(token: &str, partial_key: String) -> Response {
+    fn auth2(token: &str, partial_key: String) -> Result<Response, RecordError> {
+        // Changed signature
         let client = Client::new();
         let url = "https://radiko.jp/v2/api/auth2";
-        match client
+        Ok(client
             .get(url)
             .header("pragma", "no-cache")
-            .header("X-Radiko-User", " test-stream")
+            .header("X-Radiko-User", "test-stream")
             .header("X-Radiko-Device", "pc")
             .header("X-Radiko-AuthToken", token)
             .header("X-Radiko-PartialKey", partial_key)
-            .send()
-        {
-            Ok(n) => {
-                //debug!("{:#?}", n);
-                n
-            }
-            Err(e) => {
-                panic!("{}", e);
-            }
-        }
+            .send()?) // Propagate error
     }
 }
 
@@ -392,10 +313,7 @@ impl Radiko<'_> {
     pub fn init(ch: &str) -> Self {
         let m = get_program_dom(ch);
         let radiko: Radiko = match from_str(match &m.text() {
-            Ok(l) => {
-                // debug!("{:#?}", l);
-                l
-            }
+            Ok(l) => l,
             Err(e) => {
                 panic!("{:#?}", e);
             }
@@ -437,8 +355,6 @@ impl ChStreamingUrl {
             }
         }
         panic!("something went wrong");
-
-        //url.to_string()
     }
 
     /// Initializes `ChStreamingUrl` for a given channel.
@@ -453,8 +369,6 @@ impl ChStreamingUrl {
     pub fn init(ch: &str) -> ChStreamingUrl {
         let client = Client::new();
         let url = format!("http://radiko.jp/v2/station/stream_smh_multi/{ch}.xml");
-        //    stream_url=`xmllint --xpath "/urls/url[@areafree='0'][1]/playlist_create_url/text()" ${channel}.xml`
-
         debug!("{:#?}", &url);
         match client.get(url).send() {
             Ok(m) => {
@@ -469,7 +383,6 @@ impl ChStreamingUrl {
                 };
                 streamingurl
             }
-
             Err(e) => {
                 error!("{}", e);
                 panic!("{}", e);
@@ -493,7 +406,6 @@ pub fn get_program_dom(ch: &str) -> Response {
     info!("{:#?}", &url);
     match client.get(url).send() {
         Ok(m) => m,
-
         Err(e) => {
             error!("{}", e);
             panic!("{}", e);
@@ -511,10 +423,10 @@ impl Program<'_> {
     ///
     /// Panics if the time string cannot be parsed.
     pub fn parse_time(&self) -> DateTime<Local> {
-        return match Local.datetime_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
+        match Local.datetime_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
             Ok(m) => m,
             Err(e) => panic!("{:#?}", e),
-        };
+        }
     }
     fn validate_program(&self) -> bool {
         if self.title.is_empty()
@@ -527,14 +439,16 @@ impl Program<'_> {
     }
 }
 #[test]
-
 fn pass_auth1() {
-    assert_eq!(RecordRadiko::auth1().status(), http::StatusCode::OK)
+    assert_eq!(
+        RecordRadiko::auth1().unwrap().status(),
+        http::StatusCode::OK
+    )
 }
 
 #[test]
 fn pass_auth2() {
-    let resp = RecordRadiko::auth1();
+    let resp = RecordRadiko::auth1().unwrap();
     let header_str = resp.headers();
 
     let radiko_authkey_value = String::from("bcd151073c03b352e1ef2fd66c32209da9ca0afa");
@@ -558,17 +472,17 @@ fn pass_auth2() {
         .unwrap()
         .parse()
         .expect("Failed to parse to integer");
-    // let end = u8::try_from(keyoffset + key_length).expect("Failed to convert to u8");
     let partial_key =
         base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
     assert_eq!(
-        RecordRadiko::auth2(authtoken, partial_key).status(),
+        RecordRadiko::auth2(authtoken, partial_key)
+            .unwrap()
+            .status(),
         http::StatusCode::OK
     )
 }
 
 #[test]
-
 fn false_validate_program_bangumi_kyushi() {
     let prog = Program {
         ft: Cow::from("20211122060000"),
@@ -577,12 +491,10 @@ fn false_validate_program_bangumi_kyushi() {
         tol: Cow::from("0700"),
         dur: 3600,
         title: Cow::from("番組休止"),
-        // pfm: None,
     };
     assert!(!(prog.validate_program()))
 }
 #[test]
-
 fn false_validate_program_housou_kyushi() {
     let prog = Program {
         ft: Cow::from("20211122060000"),
@@ -591,17 +503,16 @@ fn false_validate_program_housou_kyushi() {
         tol: Cow::from("0700"),
         dur: 3600,
         title: Cow::from("放送休止"),
-        // pfm: None,
     };
     assert!(!(prog.validate_program()))
 }
 
 impl ProgDate {
     fn parse_date(&self) -> NaiveDate {
-        return match NaiveDate::parse_from_str(&self.value.to_string(), "%Y%m%d") {
+        match NaiveDate::parse_from_str(&self.value.to_string(), "%Y%m%d") {
             Ok(m) => m,
             Err(e) => panic!("{:#?}", e),
-        };
+        }
     }
 }
 #[test]
@@ -610,6 +521,6 @@ fn test_parse_date() {
 
     assert_eq!(
         progdate.parse_date(),
-        NaiveDate::parse_from_str(&"20211125".to_string(), "%Y%m%d").unwrap()
+        NaiveDate::parse_from_str("20211125", "%Y%m%d").unwrap()
     )
 }
