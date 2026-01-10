@@ -1,4 +1,4 @@
-use crate::utils::{ensure_archive_path, RecordError, sanitize_filename}; // Added RecordError
+use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
 use fs_extra;
 use fs_extra::file::CopyOptions;
 use log::{error, info, warn};

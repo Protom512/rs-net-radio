@@ -1,5 +1,5 @@
 // use core::panicking::panic;
-use crate::utils::{ensure_archive_path, RecordError, sanitize_filename}; // Added RecordError
+use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
 use log; // 0.4.14
 use log::{debug, error, info, warn};
 use reqwest; // 0.11.4
@@ -103,7 +103,6 @@ impl HibikiVideo {
         }
     }
 }
-
 
 /// Fetches data from a URL and parses it into a specified type.
 ///
@@ -270,11 +269,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         }
     };
 
-    let imagefile = format!(
-        "{}/{}_thumb.jpg",
-        &tmpdir,
-        sanitize_filename(&program.name)
-    );
+    let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, sanitize_filename(&program.name));
     let mut img = match std::fs::File::create(&imagefile) {
         Ok(f) => f,
         Err(e) => {
