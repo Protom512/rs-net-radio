@@ -2,6 +2,17 @@ use record_lib::record::hibiki;
 use std::env::set_var;
 use tracing::debug; // log::debug ではなく tracing::debug を使う
 
+/// Sets up environment variables, initializes tracing, runs the hibiki recording, and logs completion.
+///
+/// This configures RS_NET_ARCHIVE_PATH and RUST_LOG, initializes a tracing subscriber
+/// using the environment filter, calls `hibiki::record()`, and emits a final debug message.
+///
+/// # Examples
+///
+/// ```
+/// // Run the program's main entry point.
+/// main();
+/// ```
 fn main() {
     // 1. 環境変数の設定
     set_var("RS_NET_ARCHIVE_PATH", "./Temp");

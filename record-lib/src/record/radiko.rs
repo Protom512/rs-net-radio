@@ -137,15 +137,24 @@ pub struct RecordRadiko {
     url: String,
 }
 impl RecordRadiko {
-    /// Initializes a list of `RecordRadiko` tasks for a given channel.
+    /// Builds a list of recording tasks for the specified channel.
+    ///
+    /// Iterates the channel's program schedule and constructs `RecordRadiko` entries for each valid program that has a successfully parsed start time and an associated streaming URL. Programs that fail time parsing or are considered invalid are skipped.
     ///
     /// # Arguments
     ///
-    /// * `ch` - The channel ID (e.g., "QRR", "LFR").
+    /// * `ch` - Channel identifier (for example, `"QRR"` or `"LFR"`).
     ///
     /// # Returns
     ///
-    /// A vector of `RecordRadiko` tasks.
+    /// A `Vec<RecordRadiko>` with one entry per valid program, each containing the program title, start time, duration, and stream URL.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let tasks = RecordRadiko::init("QRR");
+    /// assert!(tasks.iter().all(|t| !t.title.is_empty()));
+    /// ```
     pub fn init(ch: &str) -> Vec<Self> {
         let radiko = Radiko::init(ch);
         let streaming_url = ChStreamingUrl::init(ch);
@@ -184,6 +193,35 @@ impl RecordRadiko {
         hoge
     }
 
+    /// Downloads the program stream to the archive directory using Radiko authentication and ffmpeg.
+    ///
+    /// Performs Radiko auth steps, derives the partial key from the service key, requests a streaming
+    /// URL, invokes `ffmpeg` to record for the program duration into a temporary file, then moves the
+    /// file into the archive directory with a sanitized filename.
+    ///
+    /// # Errors
+    ///
+    /// Returns `RecordError` when authentication headers are missing or invalid, when key offset/length
+    /// are out of bounds, when temporary directory or archive path resolution fails, when `ffmpeg` fails
+    /// to produce a successful exit status, or when moving the recorded file into the archive fails.
+    ///
+    /// # Returns
+    ///
+    /// The `ExitStatus` produced by the `ffmpeg` process on success.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use chrono::Local;
+    /// let rec = RecordRadiko {
+    ///     title: "Example Show".to_string(),
+    ///     ft: Local::now(),
+    ///     dur: 60,
+    ///     url: "https://example.com/stream.m3u8".to_string(),
+    /// };
+    /// let status = rec.download().expect("download failed");
+    /// assert!(status.success());
+    /// ```
     pub fn download(&self) -> Result<ExitStatus, RecordError> {
         // Changed signature
         let resp = RecordRadiko::auth1()?; // Propagate error from auth1
@@ -423,15 +461,18 @@ pub fn get_program_dom(ch: &str) -> Response {
     }
 }
 impl Program<'_> {
-    /// Parses the program's start time string into a `DateTime<Local>` object.
+    /// Convert the program's `ft` timestamp (format `YYYYMMDDHHMMSS`) into a `DateTime<Local>`.
     ///
-    /// # Returns
+    /// Returns `Ok(DateTime<Local>)` when parsing and local-time resolution succeed,
+    /// or `Err(String)` with a brief error message if parsing fails or the local time is ambiguous/invalid.
     ///
-    /// A `DateTime<Local>` representation of the program's start time.
+    /// # Examples
     ///
-    /// # Panics
-    ///
-    /// Panics if the time string cannot be parsed.
+    /// ```
+    /// let prog = Program { ft: "20240101123000".into(), to: "".into(), ftl: "".into(), tol: "".into(), dur: 0, title: "".into() };
+    /// let dt = prog.parse_time().unwrap();
+    /// assert_eq!(dt.format("%Y%m%d%H%M%S").to_string(), "20240101123000");
+    /// ```
     fn parse_time(&self) -> Result<DateTime<Local>, String> {
         match NaiveDateTime::parse_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
             Ok(naive_dt) => {
@@ -444,6 +485,38 @@ impl Program<'_> {
             Err(e) => Err(format!("Parse error: {}", e)),
         }
     }
+    /// Determines whether the program should be recorded based on its title.
+    ///
+    /// The program is considered invalid for recording when its title is empty or
+    /// contains the phrases "放送休止" or "番組休止".
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::borrow::Cow;
+    ///
+    /// let good = Program {
+    ///     ft: Cow::Borrowed("20250101000000"),
+    ///     to: Cow::Borrowed("20250101010000"),
+    ///     ftl: Cow::Borrowed("0000"),
+    ///     tol: Cow::Borrowed("0100"),
+    ///     dur: 3600,
+    ///     title: Cow::Borrowed("Morning Show"),
+    /// };
+    /// assert!(good.validate_program());
+    ///
+    /// let bad = Program {
+    ///     title: Cow::Borrowed("番組休止"),
+    ///     ft: Cow::Borrowed("20250101000000"),
+    ///     to: Cow::Borrowed("20250101010000"),
+    ///     ftl: Cow::Borrowed("0000"),
+    ///     tol: Cow::Borrowed("0100"),
+    ///     dur: 3600,
+    /// };
+    /// assert!(!bad.validate_program());
+    /// ```
+    ///
+    /// @returns `true` if the program title is not empty and does not contain "放送休止" or "番組休止", `false` otherwise.
     fn validate_program(&self) -> bool {
         if self.title.is_empty()
             || self.title.contains("放送休止")
@@ -462,6 +535,24 @@ fn pass_auth1() {
     )
 }
 
+/// Verifies that Radiko's two-step authentication succeeds when given a correctly-derived partial key.
+///
+/// Calls `auth1` to obtain the authentication headers, extracts the token, key offset, and key length,
+/// builds the partial key from a known auth key using the offset/length, then calls `auth2` and asserts
+/// the response status is 200 OK.
+///
+/// # Examples
+///
+/// ```
+/// let resp = RecordRadiko::auth1().unwrap();
+/// let headers = resp.headers();
+/// let radiko_authkey_value = String::from("bcd151073c03b352e1ef2fd66c32209da9ca0afa");
+/// let authtoken = headers.get("x-radiko-authtoken").unwrap().to_str().unwrap();
+/// let key_length: u8 = headers.get("x-radiko-keylength").unwrap().to_str().unwrap().parse().unwrap();
+/// let keyoffset: usize = headers.get("x-radiko-keyoffset").unwrap().to_str().unwrap().parse().unwrap();
+/// let partial_key = general_purpose::STANDARD.encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
+/// assert_eq!(RecordRadiko::auth2(authtoken, partial_key).unwrap().status(), http::StatusCode::OK);
+/// ```
 #[test]
 fn pass_auth2() {
     let resp = RecordRadiko::auth1().unwrap();
@@ -524,6 +615,18 @@ fn false_validate_program_housou_kyushi() {
 }
 
 impl ProgDate {
+    /// Parse the stored YYYYMMDD integer into a `NaiveDate`.
+    ///
+    /// Panics if the value cannot be parsed as a valid date.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use chrono::NaiveDate;
+    /// let pd = ProgDate { value: 20230102 };
+    /// let d = pd._parse_date();
+    /// assert_eq!(d, NaiveDate::from_ymd(2023, 1, 2));
+    /// ```
     fn _parse_date(&self) -> NaiveDate {
         match NaiveDate::parse_from_str(&self.value.to_string(), "%Y%m%d") {
             Ok(m) => m,
