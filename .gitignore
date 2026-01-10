@@ -171,4 +171,7 @@ tags
 # Support for Project snippet scope
 !.vscode/*.code-snippets
 
-# End of https://www.toptal.com/developers/gitignore/api/jetbrains,rust,visualstudiocode,vim.]
+# End of https://www.toptal.com/developers/gitignore/api/jetbrains,rust,visualstudiocode,vim.
+
+# Log files
+*.log
