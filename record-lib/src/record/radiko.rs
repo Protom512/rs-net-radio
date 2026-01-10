@@ -1,7 +1,7 @@
 use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
                                                                          // Assuming this is a custom module for base64 encoding
-use chrono;
-use chrono::{DateTime, Local, NaiveDate, TimeZone};
+use base64::{engine::general_purpose, Engine as _};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone};
 use log::{debug, error, info};
 use reqwest::blocking::{Client, Response};
 use serde::{Deserialize, Serialize};
@@ -159,9 +159,16 @@ impl RecordRadiko {
                 match j {
                     Progset::Prog(n) => {
                         if n.validate_program() {
+                            let ft = match n.parse_time() {
+                                Ok(m) => m,
+                                Err(e) => {
+                                    error!("{}", e);
+                                    continue;
+                                }
+                            };
                             let rad = RecordRadiko {
                                 title: n.title.as_ref().to_string(),
-                                ft: n.parse_time(),
+                                ft,
                                 dur: n.dur,
                                 url: url.clone(),
                             };
@@ -217,7 +224,10 @@ impl RecordRadiko {
                 radiko_authkey_value.len()
             )));
         }
-        let partial_key = base64::encode(&radiko_authkey_value[keyoffset..keyoffset + key_length]);
+
+        let partial_key = general_purpose::STANDARD
+            .encode(&radiko_authkey_value[keyoffset..keyoffset + key_length]);
+
         let _resp_auth2 = RecordRadiko::auth2(authtoken, partial_key)?;
         debug!("{:#?}\n", &_resp_auth2.text()?); // Propagate error from text()
 
@@ -422,10 +432,16 @@ impl Program<'_> {
     /// # Panics
     ///
     /// Panics if the time string cannot be parsed.
-    pub fn parse_time(&self) -> DateTime<Local> {
-        match Local.datetime_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
-            Ok(m) => m,
-            Err(e) => panic!("{:#?}", e),
+    fn parse_time(&self) -> Result<DateTime<Local>, String> {
+        match NaiveDateTime::parse_from_str(self.ft.as_ref(), "%Y%m%d%H%M%S") {
+            Ok(naive_dt) => {
+                // Localタイムゾーンに変換
+                match Local.from_local_datetime(&naive_dt).single() {
+                    Some(local_dt) => Ok(local_dt),
+                    None => Err("Ambiguous or invalid local time".to_string()),
+                }
+            }
+            Err(e) => Err(format!("Parse error: {}", e)),
         }
     }
     fn validate_program(&self) -> bool {
@@ -472,8 +488,8 @@ fn pass_auth2() {
         .unwrap()
         .parse()
         .expect("Failed to parse to integer");
-    let partial_key =
-        base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
+    let partial_key = general_purpose::STANDARD
+        .encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
     assert_eq!(
         RecordRadiko::auth2(authtoken, partial_key)
             .unwrap()
@@ -508,7 +524,7 @@ fn false_validate_program_housou_kyushi() {
 }
 
 impl ProgDate {
-    fn parse_date(&self) -> NaiveDate {
+    fn _parse_date(&self) -> NaiveDate {
         match NaiveDate::parse_from_str(&self.value.to_string(), "%Y%m%d") {
             Ok(m) => m,
             Err(e) => panic!("{:#?}", e),
@@ -520,7 +536,7 @@ fn test_parse_date() {
     let progdate = ProgDate { value: 20211125 };
 
     assert_eq!(
-        progdate.parse_date(),
+        progdate._parse_date(),
         NaiveDate::parse_from_str("20211125", "%Y%m%d").unwrap()
     )
 }

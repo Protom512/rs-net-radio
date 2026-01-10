@@ -104,10 +104,10 @@ fn job_hibiki(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
 async fn main() {
     let mut builder = Builder::new();
     builder.format(|buf, record| {
-        /// Returns the default style for the given log level.
-        /// This style includes color and formatting attributes that will be used to display log messages.
-        /// The style is determined by the log level (e.g., Error, Warn, Info, Debug, Trace).
-        let style = buf.default_level_style(record.level());
+        // Returns the default style for the given log level.
+        // This style includes color and formatting attributes that will be used to display log messages.
+        // The style is determined by the log level (e.g., Error, Warn, Info, Debug, Trace).
+        let _style = buf.default_level_style(record.level());
         writeln!(
             buf,
             "[{}] [{}:{}] {}",
@@ -143,7 +143,7 @@ async fn main() {
 
     if current_time.timestamp() > init_dt.timestamp() {
         let current_shot = current_time + Duration::seconds(3);
-        let schedule = format!(
+        let _schedule = format!(
             "{} {} {} {} {} * {}",
             current_shot.with_timezone(&Utc).second(),
             current_shot.with_timezone(&Utc).minute(),

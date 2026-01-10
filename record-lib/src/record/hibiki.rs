@@ -1,4 +1,5 @@
 // use core::panicking::panic;
+use crate::utils::sanitize_filename;
 use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
 use log; // 0.4.14
 use log::{debug, error, info, warn};
@@ -7,9 +8,7 @@ use reqwest::blocking::Response;
 use reqwest::header::{ORIGIN, USER_AGENT};
 use serde::Deserialize;
 use serde_json;
-
 use std::env::temp_dir;
-// use std::fmt::format;
 
 extern crate m3u8_rs;
 extern crate tempdir;
@@ -104,37 +103,6 @@ impl HibikiVideo {
     }
 }
 
-/// Formats a filename to replace characters that are forbidden in filenames.
-///
-/// # Arguments
-///
-/// * `filename` - The original filename.
-///
-/// # Returns
-///
-/// A new string with forbidden characters replaced.
-pub fn format_forbidden_char(filename: &str) -> String {
-    // 禁止文字(半角記号)
-    // let cannot_used_file_name = "\\/:*?`\"><|";
-    // 禁止文字(全角記号)
-    // let used_file_name = "￥／：＊？`”＞＜｜";
-    //TODO motto smart ni yaritai
-    filename
-        .replace('\\', "￥")
-        .replace('/', "／")
-        .replace('\"', "”")
-        .replace(':', "：")
-        .replace('*', "＊")
-        .replace('?', "？")
-        .replace('`', "`")
-        .replace('>', "＞")
-        .replace('<', "＜")
-}
-#[test]
-fn pass_format_char() {
-    assert_eq!(format_forbidden_char("Fate/Test"), "Fate／Test")
-}
-
 #[test]
 fn test_generate_episode_filename() {
     assert_eq!(
@@ -209,7 +177,7 @@ fn fetch_and_parse<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, String>
 fn generate_episode_filename(program_name: &str, episode_name_opt: Option<&str>) -> String {
     let episode_name = episode_name_opt.unwrap_or("UnknownEpisode");
     let raw_filename = format!("{}_{}.mp4", program_name, episode_name);
-    format_forbidden_char(&raw_filename)
+    sanitize_filename(&raw_filename)
 }
 
 fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), String> {
@@ -300,11 +268,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         }
     };
 
-    let imagefile = format!(
-        "{}/{}_thumb.jpg",
-        &tmpdir,
-        format_forbidden_char(&program.name)
-    );
+    let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, sanitize_filename(&program.name));
     let mut img = match std::fs::File::create(&imagefile) {
         Ok(f) => f,
         Err(e) => {
@@ -409,8 +373,6 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         }
     }
 }
-
-static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
 
 /// Records Hibiki radio programs.
 ///
