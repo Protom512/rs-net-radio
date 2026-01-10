@@ -1,9 +1,9 @@
-use tokio::process::Command;
+use crate::utils::RecordError;
+use log::{debug, error, info};
 use std::process::ExitStatus;
 use std::time::Duration;
+use tokio::process::Command;
 use tokio::time::timeout;
-use log::{error, info, debug};
-use crate::utils::RecordError;
 
 /// 外部プロセスの実行結果を保持する構造体
 pub struct ProcessResult {
@@ -29,7 +29,10 @@ pub async fn execute_command(
         .map_err(|e| RecordError::Io(e))?;
 
     let execution = async {
-        let output = child.wait_with_output().await.map_err(|e| RecordError::Io(e))?;
+        let output = child
+            .wait_with_output()
+            .await
+            .map_err(|e| RecordError::Io(e))?;
         Ok(ProcessResult {
             status: output.status,
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -43,7 +46,10 @@ pub async fn execute_command(
             Err(_) => {
                 // タイムアウト時にプロセスを殺す試み
                 let _ = child.kill().await;
-                Err(RecordError::Other(format!("Command {} timed out after {:?}", cmd_name, d)))
+                Err(RecordError::Other(format!(
+                    "Command {} timed out after {:?}",
+                    cmd_name, d
+                )))
             }
         }
     } else {
@@ -59,7 +65,7 @@ pub async fn execute_command(
                 stderr: res.stderr.clone(),
             })
         }
-        _ => result
+        _ => result,
     }
 }
 
@@ -71,18 +77,21 @@ pub async fn record_with_ffmpeg(
 ) -> Result<(), RecordError> {
     let duration_str = format!("{}", duration.as_secs());
     let args = [
-        "-i", input_url,
-        "-t", &duration_str,
-        "-c", "copy",
+        "-i",
+        input_url,
+        "-t",
+        &duration_str,
+        "-c",
+        "copy",
         "-y", // 上書き許可
         output_path,
     ];
 
     // 録画時間に少しバッファを持たせたタイムアウトを設定
     let timeout_limit = duration + Duration::from_secs(60);
-    
+
     execute_command("ffmpeg", &args, Some(timeout_limit)).await?;
-    
+
     info!("Successfully recorded: {}", output_path);
     Ok(())
 }
