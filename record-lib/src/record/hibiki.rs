@@ -240,11 +240,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         }
     };
 
-    let imagefile = format!(
-        "{}/{}_thumb.jpg",
-        &tmpdir,
-        sanitize_filename(&program.name)
-    );
+    let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, sanitize_filename(&program.name));
     let mut img = match std::fs::File::create(&imagefile) {
         Ok(f) => f,
         Err(e) => {
@@ -284,7 +280,10 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     let filename = sanitize_filename(&format!(
         "{}_{}.mp4",
         &program.name,
-        program.latest_episode_name.as_deref().unwrap_or("UnknownEpisode")
+        program
+            .latest_episode_name
+            .as_deref()
+            .unwrap_or("UnknownEpisode")
     ));
     let output_path = format!("{}/{}", archive_path, &filename);
     let working_path = format!("{}/{}", tmpdir, &filename);
