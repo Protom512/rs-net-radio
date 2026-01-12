@@ -1,5 +1,5 @@
 // use core::panicking::panic;
-use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
+use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
 use log; // 0.4.14
 use log::{debug, error, info, warn};
 use reqwest; // 0.11.4
@@ -104,63 +104,9 @@ impl HibikiVideo {
     }
 }
 
-/// Formats a filename to replace characters that are forbidden in filenames.
-///
-/// # Arguments
-///
-/// * `filename` - The original filename.
-///
-/// # Returns
-///
-/// A new string with forbidden characters replaced.
-pub fn format_forbidden_char(filename: &str) -> String {
-    // 禁止文字(半角記号)
-    // let cannot_used_file_name = "\\/:*?`\"><|";
-    // 禁止文字(全角記号)
-    // let used_file_name = "￥／：＊？`”＞＜｜";
-    //TODO motto smart ni yaritai
-    filename
-        .replace('\\', "￥")
-        .replace('/', "／")
-        .replace('\"', "”")
-        .replace(':', "：")
-        .replace('*', "＊")
-        .replace('?', "？")
-        .replace('`', "`")
-        .replace('>', "＞")
-        .replace('<', "＜")
-}
 #[test]
-fn pass_format_char() {
-    assert_eq!(format_forbidden_char("Fate/Test"), "Fate／Test")
-}
-
-#[test]
-fn test_generate_episode_filename() {
-    assert_eq!(
-        generate_episode_filename("Program A", Some("Episode 1")),
-        "Program A_Episode 1.mp4"
-    );
-    assert_eq!(
-        generate_episode_filename("Program B", None),
-        "Program B_UnknownEpisode.mp4"
-    );
-    assert_eq!(
-        generate_episode_filename("Program/C", Some("Episode:2*")),
-        "Program／C_Episode：2＊.mp4"
-    );
-    assert_eq!(
-        generate_episode_filename("Program\\D", Some("Episode?3")),
-        "Program￥D_Episode？3.mp4"
-    );
-    assert_eq!(
-        generate_episode_filename("Program\"E", Some("Episode`4")),
-        "Program”E_Episode`4.mp4" // Assuming ` is not replaced by format_forbidden_char based on its current implementation
-    );
-    assert_eq!(
-        generate_episode_filename("Program>F", Some("Episode<5")),
-        "Program＞F_Episode＜5.mp4"
-    );
+fn pass_sanitize_filename() {
+    assert_eq!(sanitize_filename("Program/../C"), "Program..C")
 }
 
 /// Fetches data from a URL and parses it into a specified type.
@@ -206,12 +152,6 @@ fn fetch_and_parse<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, String>
 /// # Returns
 ///
 /// A `String` representing the sanitized filename (e.g., "Program_Name_Episode_Name.mp4").
-fn generate_episode_filename(program_name: &str, episode_name_opt: Option<&str>) -> String {
-    let episode_name = episode_name_opt.unwrap_or("UnknownEpisode");
-    let raw_filename = format!("{}_{}.mp4", program_name, episode_name);
-    format_forbidden_char(&raw_filename)
-}
-
 fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), String> {
     debug!("{:?}", program);
     let episode_url = format!(
@@ -303,7 +243,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     let imagefile = format!(
         "{}/{}_thumb.jpg",
         &tmpdir,
-        format_forbidden_char(&program.name)
+        sanitize_filename(&program.name)
     );
     let mut img = match std::fs::File::create(&imagefile) {
         Ok(f) => f,
@@ -341,7 +281,11 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     };
 
     // create file_name
-    let filename = generate_episode_filename(&program.name, program.latest_episode_name.as_deref());
+    let filename = sanitize_filename(&format!(
+        "{}_{}.mp4",
+        &program.name,
+        program.latest_episode_name.as_deref().unwrap_or("UnknownEpisode")
+    ));
     let output_path = format!("{}/{}", archive_path, &filename);
     let working_path = format!("{}/{}", tmpdir, &filename);
 

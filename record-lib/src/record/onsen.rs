@@ -1,4 +1,4 @@
-use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
+use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
 use fs_extra;
 use fs_extra::file::CopyOptions;
 use log::{error, info, warn};
@@ -78,11 +78,10 @@ impl OnsenProgram {
         for contents in &self.contents {
             match &contents.streaming_url {
                 Some(n) => {
-                    let file_name = format!(
+                    let file_name = sanitize_filename(&format!(
                         "{}_{}.mp4",
-                        &self.title.as_str().replace([' ', '　', '/'], "_"),
-                        &contents.title.as_str().replace([' ', '/'], "_")
-                    );
+                        &self.title, &contents.title
+                    ));
                     let output_path = format!("{}/{}", tmpdir, &file_name);
                     let archive_file = format!("{}/{}", &archive_path, &file_name);
                     let path = Path::new(&archive_file);
