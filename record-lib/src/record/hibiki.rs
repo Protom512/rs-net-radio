@@ -83,6 +83,20 @@ pub fn get_api(url: &str) -> Result<Response, RecordError> {
 }
 
 impl HibikiVideo {
+    /// Retrieves the m3u8 playlist URL for this video, appending the access token when present.
+    ///
+    /// On success returns the direct playlist URL; if the playlist response includes a `token`,
+    /// the token is appended as `&token=...`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let video = HibikiVideo { id: 12345, live_flg: false };
+    /// match video.get_m3u8_url() {
+    ///     Ok(url) => println!("m3u8 URL: {}", url),
+    ///     Err(e) => eprintln!("error: {:?}", e),
+    /// }
+    /// ```
     fn get_m3u8_url(&self) -> Result<String, RecordError> {
         let url = format!(
             "https://vcms-api.hibiki-radio.jp/api/v1/videos/play_check?video_id={video_id}",
@@ -164,22 +178,53 @@ fn fetch_and_parse<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, String>
     })
 }
 
-/// Generates a sanitized filename for an episode.
+/// Creates a sanitized filename for an episode.
 ///
-/// # Arguments
+/// If `episode_name_opt` is `None`, `"UnknownEpisode"` is used as the episode name.
 ///
-/// * `program_name` - The name of the program.
-/// * `episode_name_opt` - An `Option` containing the episode name. Defaults to "UnknownEpisode".
+/// # Examples
 ///
-/// # Returns
+/// ```
+/// let name = generate_episode_filename("My Show", Some("Episode 1"));
+/// assert!(name.ends_with(".mp4"));
 ///
-/// A `String` representing the sanitized filename (e.g., "Program_Name_Episode_Name.mp4").
+/// let unknown = generate_episode_filename("My Show", None);
+/// assert!(unknown.ends_with(".mp4"));
+/// ```
 fn generate_episode_filename(program_name: &str, episode_name_opt: Option<&str>) -> String {
     let episode_name = episode_name_opt.unwrap_or("UnknownEpisode");
     let raw_filename = format!("{}_{}.mp4", program_name, episode_name);
     sanitize_filename(&raw_filename)
 }
 
+/// Process a single Hibiki program: validate metadata, download artwork, fetch the episode stream, and archive the episode.
+///
+/// Performs these steps:
+/// - Retrieves episode details for `program`.
+/// - Validates the episode ID and that the episode is not live.
+/// - Ensures an archive directory exists under `{archive_base_path}/hibiki`.
+/// - Downloads the program's PC image to a temporary file.
+/// - Resolves the episode's m3u8 URL and invokes `ffmpeg` to merge the image and stream into a file.
+/// - Moves the produced file from a temporary working path into the archive directory.
+///
+/// Errors are returned as descriptive strings for any failure encountered (network, filesystem, validation, or ffmpeg).
+///
+/// # Parameters
+///
+/// - `program`: Hibiki program metadata containing access and episode information.
+/// - `archive_base_path`: Base directory under which the `hibiki` archive subdirectory will be created or used.
+///
+/// # Returns
+///
+/// `Ok(())` on successful archival or if the episode already exists in the archive; `Err(String)` with a descriptive message otherwise.
+///
+/// # Examples
+///
+/// ```
+/// // Network- and system-dependent operation; example usage shown for illustration.
+/// // let program = HibikiJson { access_id: "example".into(), latest_episode_id: None, latest_episode_name: None, pc_image_url: None, name: "Example".into() };
+/// // let _ = process_program(&program, "/var/archives");
+/// ```
 fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), String> {
     debug!("{:?}", program);
     let episode_url = format!(

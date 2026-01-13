@@ -11,6 +11,27 @@ use record_lib::record::hibiki::record;
 use record_lib::record::radiko::RecordRadiko;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
+/// Creates a cron job that schedules Radiko recordings for a specific channel.
+///
+/// When the returned job runs, it initializes a nested scheduler and registers
+/// recording jobs for each upcoming Radiko entry for the given channel.
+///
+—
+/// # Parameters
+///
+/// * `init_schedule` — Cron schedule string used to trigger the job's initialization.
+/// * `ch` — Radiko channel identifier (e.g., `"QRR"`, `"LFR"`).
+///
+/// # Returns
+///
+/// `Ok(Job)` containing a cron job configured to discover and schedule Radiko recordings, `Err` on job creation failure.
+///
+/// # Examples
+///
+/// ```
+/// let job = job_radiko("00 00 20 * * * *", "QRR").unwrap();
+/// // `job` can then be added to a JobScheduler
+/// ```
 fn job_radiko(init_schedule: &str, ch: &'static str) -> Result<Job, Box<dyn Error>> {
     info!("running job_radiko");
     debug!("{}", &init_schedule);
@@ -67,6 +88,20 @@ fn job_radiko(init_schedule: &str, ch: &'static str) -> Result<Job, Box<dyn Erro
     })
     .map_err(Box::from)
 }
+/// Create a cron job that executes all configured Onsen program recordings at the given schedule.
+///
+/// The job loads the Onsen program list and invokes each program's `record()` when the cron triggers,
+/// logging success or any errors for each program.
+///
+/// # Returns
+///
+/// `Ok(Job)` containing the configured cron job on success, `Err(Box<dyn Error>)` if job creation fails.
+///
+/// # Examples
+///
+/// ```
+/// let _ = job_onsen("00 00 20 * * * *").unwrap();
+/// ```
 fn job_onsen(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
     info!("running job_onsen");
     debug!("{}", &init_schedule);
@@ -100,6 +135,16 @@ fn job_hibiki(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
     .map_err(Box::from) // Added error mapping
 }
 
+/// Initialize logging, register scheduled recording jobs for Radiko, Onsen, and Hibiki relative to today's 04:00 start, and start the cron scheduler.
+///
+/// Configures env_logger formatting and level, computes initial schedules (including immediate one-shot schedules when the current time is after today's 04:00), creates and adds cron jobs for Onsen, Radiko (channels "QRR" and "LFR"), and Hibiki, then starts the tokio_cron_scheduler. Job creation and addition use `expect` to fail early on error; scheduler startup errors are logged.
+///
+/// # Examples
+///
+/// ```no_run
+/// // This function is the program entrypoint and runs the async runtime.
+/// // Run the compiled binary to start scheduling jobs.
+/// ```
 #[tokio::main]
 async fn main() {
     let mut builder = Builder::new();

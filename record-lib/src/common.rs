@@ -12,8 +12,31 @@ pub struct ProcessResult {
     pub stderr: String,
 }
 
-/// 非同期コマンド実行ヘルパー
-/// ffmpeg や streamlink などの外部コマンドを非同期に実行する
+/// Execute an external command, capturing its exit status, stdout, and stderr.
+///
+/// Runs the given command with the provided arguments and returns a `ProcessResult` containing the process exit status and captured output. If `timeout_duration` is provided and the command does not complete within that duration, the function attempts to kill the child process and returns `RecordError::Other` with a timeout message. If the process exits with a non-success status, the function returns `RecordError::CommandFailed` containing the command name, exit code, and captured stderr.
+///
+/// # Parameters
+///
+/// - `cmd_name`: The command executable name to run.
+/// - `args`: Arguments to pass to the command.
+/// - `timeout_duration`: Optional timeout after which the child process will be killed and a timeout error returned.
+///
+/// # Returns
+///
+/// `Ok(ProcessResult)` on successful execution (zero or success exit status), or an appropriate `RecordError` on I/O errors, timeouts, or non-successful exit statuses.
+///
+/// # Examples
+///
+/// ```
+/// # use std::time::Duration;
+/// # use tokio_test::block_on;
+/// # async fn try_execute() -> Result<(), Box<dyn std::error::Error>> {
+/// let res = crate::execute_command("echo", &["hello"], Some(Duration::from_secs(5))).await?;
+/// assert!(res.stdout.contains("hello"));
+/// # Ok(()) }
+/// # let _ = block_on(try_execute());
+/// ```
 pub async fn execute_command(
     cmd_name: &str,
     args: &[&str],
@@ -69,7 +92,24 @@ pub async fn execute_command(
     }
 }
 
-/// ffmpeg 特有の録画実行ラッパー（将来的に Output Adapter となる）
+/// Record a media stream to a file using ffmpeg for a specified duration.
+///
+/// This function invokes the `ffmpeg` executable to capture `input_url` into `output_path`
+/// for `duration`. It applies a safety timeout of `duration + 60s`; if the ffmpeg process
+/// does not finish before that timeout, the function returns an error.
+///
+/// # Returns
+///
+/// `Ok(())` on successful recording, `Err(RecordError)` otherwise.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::time::Duration;
+/// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
+/// record_with_ffmpeg("rtmp://example/live/stream", "/tmp/output.ts", Duration::from_secs(30)).await?;
+/// # Ok(()) }
+/// ```
 pub async fn record_with_ffmpeg(
     input_url: &str,
     output_path: &str,

@@ -89,7 +89,17 @@ pub fn ensure_archive_path(service_name: &str) -> Result<String, RecordError> {
     Ok(service_path_str)
 }
 
-/// Sanitizes a filename by replacing characters forbidden by common filesystems.
+/// Produce a filename safe for use on common filesystems by replacing or removing characters
+/// that are forbidden or problematic in filenames.
+///
+/// # Examples
+///
+/// ```
+/// let s = sanitize_filename("inva/lid:fi*le?.txt");
+/// assert!(!s.contains('/'));
+/// assert!(!s.contains(':'));
+/// assert!(s.ends_with(".txt"));
+/// ```
 pub fn sanitize_filename(filename: &str) -> String {
     sanitize_filename_crate::sanitize(filename)
 }
