@@ -1,0 +1,94 @@
+   Compiling record-lib v0.1.0 (/app/record-lib)
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> record-lib/src/record/radiko.rs:476:17
+    |
+476 |         base64::encode(&radiko_authkey_value[keyoffset..(keyoffset + key_length as usize)]);
+    |                 ^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> record-lib/src/record/radiko.rs:220:35
+    |
+220 |         let partial_key = base64::encode(&radiko_authkey_value[keyoffset..keyoffset + key_length]);
+    |                                   ^^^^^^
+
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> record-lib/src/record/radiko.rs:220:35
+    |
+220 |         let partial_key = base64::encode(&radiko_authkey_value[keyoffset..keyoffset + key_length]);
+    |                                   ^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: static `RS_NET_ARCHIVE_PATH` is never used
+   --> record-lib/src/record/hibiki.rs:386:8
+    |
+386 | static RS_NET_ARCHIVE_PATH: &str = "RS_NET_ARCHIVE_PATH";
+    |        ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parse_date` is never used
+   --> record-lib/src/record/radiko.rs:511:8
+    |
+510 | impl ProgDate {
+    | ------------- method in this implementation
+511 |     fn parse_date(&self) -> NaiveDate {
+    |        ^^^^^^^^^^
+
+warning: `record-lib` (lib) generated 3 warnings (1 duplicate)
+   Compiling rs-net-radio v0.1.0 (/app/app)
+warning: unused doc comment
+   --> app/src/main.rs:107:9
+    |
+107 | /         /// Returns the default style for the given log level.
+108 | |         /// This style includes color and formatting attributes that will be used to display log messages.
+109 | |         /// The style is determined by the log level (e.g., Error, Warn, Info, Debug, Trace).
+    | |_____________________________________________________________________________________________^
+110 |           let style = buf.default_level_style(record.level());
+    |           ---------------------------------------------------- rustdoc does not generate documentation for statements
+    |
+    = help: use `//` for a plain comment
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `schedule`
+   --> app/src/main.rs:146:13
+    |
+146 |         let schedule = format!(
+    |             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_schedule`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `style`
+   --> app/src/main.rs:110:13
+    |
+110 |         let style = buf.default_level_style(record.level());
+    |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_style`
+
+warning: `record-lib` (lib test) generated 3 warnings
+warning: `rs-net-radio` (bin "rs-net-radio" test) generated 3 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.18s
+     Running unittests src/lib.rs (target/debug/deps/record_lib-6e900301cfd1817b)
+
+running 6 tests
+test record::radiko::false_validate_program_bangumi_kyushi ... ok
+test record::radiko::false_validate_program_housou_kyushi ... ok
+test record::radiko::test_parse_date ... ok
+test record::hibiki::test_generate_episode_filename ... ok
+test record::radiko::pass_auth1 ... ok
+test record::radiko::pass_auth2 ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.39s
+
+     Running unittests src/main.rs (target/debug/deps/rs_net_radio-06fa5a64af720a96)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests record_lib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

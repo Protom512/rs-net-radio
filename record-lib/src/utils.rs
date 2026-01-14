@@ -91,5 +91,13 @@ pub fn ensure_archive_path(service_name: &str) -> Result<String, RecordError> {
 
 /// Sanitizes a filename by replacing characters forbidden by common filesystems.
 pub fn sanitize_filename(filename: &str) -> String {
-    sanitize_filename_crate::sanitize(filename)
+    // Use the crate to handle OS-specific invalid characters first.
+    let mut sanitized = sanitize_filename_crate::sanitize(filename);
+
+    // Loop to handle recursive cases like "....//" -> ".." -> ""
+    while sanitized.contains("..") {
+        sanitized = sanitized.replace("..", "");
+    }
+
+    sanitized
 }
