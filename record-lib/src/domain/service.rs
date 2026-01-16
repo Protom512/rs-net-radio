@@ -42,7 +42,7 @@ pub trait RecordService: Send + Sync {
     /// - Network connection fails.
     /// - File I/O fails.
     /// - Stream format is unsupported.
-    /// - External process (FFmpeg) fails.
+    /// - External process (`FFmpeg`) fails.
     async fn record(
         &self,
         url: &str,

@@ -75,8 +75,8 @@ mod tests {
 
     #[test]
     fn test_recording_metadata_duration() {
-        let start = DateTime::from_timestamp(1609459200, 0).unwrap(); // 2021-01-01 00:00:00 UTC
-        let end = DateTime::from_timestamp(1609462800, 0).unwrap(); // 2021-01-01 01:00:00 UTC
+        let start = DateTime::from_timestamp(1_609_459_200, 0).unwrap(); // 2021-01-01 00:00:00 UTC
+        let end = DateTime::from_timestamp(1_609_462_800, 0).unwrap(); // 2021-01-01 01:00:00 UTC
 
         let metadata = RecordingMetadata::new(
             "Test Program".to_string(),
