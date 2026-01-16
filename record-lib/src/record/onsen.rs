@@ -68,12 +68,19 @@ impl OnsenProgram {
     ///
     /// This function iterates through the program's contents (episodes) and downloads
     /// any available streams using ffmpeg.
+    ///
+    /// # Errors
+    ///
+    /// Returns `RecordError` if:
+    /// - The archive path cannot be created
+    /// - The temporary directory cannot be found
+    /// - Stream download or recording fails
     pub fn record(&self) -> Result<(), RecordError> {
         // Changed signature
         let archive_path = ensure_archive_path("onsen")?;
 
         let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
-        info!("working path: {}", tmpdir);
+        info!("working path: {tmpdir}");
 
         for contents in &self.contents {
             match &contents.streaming_url {
@@ -143,7 +150,7 @@ impl OnsenProgram {
                     "streaming url is null for {},{}",
                     self.title, contents.title
                 ),
-            };
+            }
         }
         Ok(())
     }
@@ -157,6 +164,7 @@ impl OnsenProgram {
     /// # Panics
     ///
     /// Panics if the API request or JSON parsing fails.
+    #[must_use]
     pub fn init() -> Vec<OnsenProgram> {
         let client = reqwest::blocking::Client::new();
         match client.get("https://www.onsen.ag/web_api/programs").send() {
@@ -164,12 +172,12 @@ impl OnsenProgram {
                 Ok(n) => n,
 
                 Err(e) => {
-                    error!("{}", e);
+                    error!("{e}");
                     panic!("{}", e);
                 }
             },
             Err(e) => {
-                error!("{}", e);
+                error!("{e}");
                 panic!("{}", e);
             }
         }

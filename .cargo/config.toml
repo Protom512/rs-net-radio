@@ -1,0 +1,196 @@
+# ============================================================================
+# Cargo Configuration - Best Practices
+# ============================================================================
+# プロジェクトの .cargo/config.toml に配置
+
+# ============================================================================
+# ビルド設定
+# ============================================================================
+[build]
+# 並列ビルドジョブ数（CPUコア数に応じて自動調整）
+# jobs = 4  # 手動指定する場合
+
+# インクリメンタルコンパイルを有効化（開発時のビルド高速化）
+incremental = true
+
+# ============================================================================
+# ターゲット設定（Windows向け最適化）
+# ============================================================================
+#[target.x86_64-pc-windows-msvc]
+
+# ============================================================================
+# Clippy 設定（コード品質・安全性）
+# ============================================================================
+[lints.clippy]
+# --- 危険な操作を禁止（Restriction） ---
+unwrap_used = "deny"           # unwrap()禁止
+expect_used = "deny"           # expect()禁止
+panic = "deny"                 # panic!禁止
+todo = "deny"                  # todo!禁止
+unimplemented = "deny"         # unimplemented!禁止
+unreachable = "deny"           # unreachable!禁止
+indexing_slicing = "deny"      # []によるインデックスアクセス禁止
+
+# --- デバッグコードの検出 ---
+dbg_macro = "deny"             # dbg!マクロ禁止
+print_stdout = "deny"          # println!禁止（本番コード）
+print_stderr = "deny"          # eprintln!禁止（本番コード）
+
+# --- メモリ安全性 ---
+clone_on_ref_ptr = "deny"      # Arc/Rcのcloneを明示的に
+rc_buffer = "deny"             # Rc<Vec<T>>などの非効率パターン禁止
+rc_mutex = "deny"              # Rc<Mutex<T>>禁止（Arc使用推奨）
+
+# --- セキュリティ ---
+exit = "deny"                  # process::exit禁止
+filetype_is_file = "warn"      # is_file()の不適切使用
+
+# --- 文字列操作 ---
+string_slice = "deny"          # 文字列スライスの危険な操作
+string_add = "warn"            # 文字列の+演算子（format!推奨）
+
+# --- 数値演算 ---
+integer_division = "warn"      # 整数除算の意図確認
+arithmetic_side_effects = "warn" # 算術オーバーフロー検出
+cast_possible_truncation = "warn"
+cast_possible_wrap = "warn"
+cast_precision_loss = "warn"
+cast_sign_loss = "warn"
+
+# --- カテゴリ一括設定 ---
+pedantic = { level = "warn", priority = -1 }  # 細かい品質チェック
+nursery = { level = "warn", priority = -1 }   # 実験的チェック
+cargo = { level = "warn", priority = -1 }     # Cargo.toml関連
+
+# --- Pedantic/Nursery の例外（厳しすぎる項目） ---
+module_name_repetitions = "allow"  # モジュール名の重複許可
+similar_names = "allow"            # 似た変数名許可
+too_many_lines = "allow"           # 行数制限緩和
+struct_excessive_bools = "allow"   # 構造体のboolフィールド数制限緩和
+mod_module_files = "allow"         # mod.rsファイルの使用を許可
+pub_use = "allow"                  # pub useの使用を許可
+
+# --- ドキュメント ---
+missing_errors_doc = "warn"    # Error戻り値のドキュメント
+missing_panics_doc = "warn"    # パニック可能性のドキュメント
+# missing_docs_in_private_items = "warn"  # プライベート項目も文書化（厳格）
+
+# ============================================================================
+# Rust コンパイラ設定
+# ============================================================================
+[lints.rust]
+unsafe_code = "deny"           # unsafeコード禁止（必要な場合のみ許可）
+missing_docs = "warn"        # 公開APIのドキュメント必須
+
+# ============================================================================
+# プロファイル設定
+# ============================================================================
+# 注：これらは Cargo.toml に書くのが一般的ですが、config.toml でも可能
+
+[profile.dev]
+# 開発時の最適化レベル（0=最速ビルド, 3=最速実行）
+opt-level = 0
+# デバッグ情報
+debug = true
+# オーバーフローチェック
+overflow-checks = true
+
+# 依存クレートのみ最適化（ビルド時間と実行速度のバランス）
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+# リリースビルドの最適化
+opt-level = 3
+lto = "thin"              # リンク時最適化（thin=高速、true=最大）
+codegen-units = 1         # 並列化削減で最適化向上
+strip = true              # デバッグシンボル削除（バイナリサイズ削減）
+panic = "abort"           # パニック時即終了（スタック巻き戻し不要）
+
+# ============================================================================
+# エイリアス設定（便利なショートカット）
+# ============================================================================
+[alias]
+# クイックチェック（型チェックのみ、高速）
+c = "check"
+cc = "check --all-targets --all-features"
+
+# ビルド
+b = "build"
+br = "build --release"
+
+# テスト
+t = "test"
+tw = "test --workspace"
+
+# Clippy（詳細出力）
+cl = "clippy --all-targets --all-features -- -D warnings"
+
+# フォーマットチェック
+fmt-check = "fmt --all -- --check"
+
+# 完全チェック（CI相当）
+ci = "clippy --all-targets --all-features --workspace -- -D warnings"
+
+# 依存関係更新
+up = "update"
+f = "fix --all-targets --all-features --workspace --allow-dirty"
+
+# ============================================================================
+# レジストリ設定（プライベートレジストリ使用時）
+# ============================================================================
+# [registries.my-registry]
+# index = "https://my-registry.example.com/git/index"
+
+# [source.my-registry]
+# registry = "https://my-registry.example.com/git/index"
+
+# ============================================================================
+# ネットワーク設定
+# ============================================================================
+[net]
+# Git fetch の並列数
+git-fetch-with-cli = false
+# タイムアウト設定（秒）
+# retry = 2
+
+# ============================================================================
+# HTTP設定（プロキシ環境）
+# ============================================================================
+[http]
+# proxy = "http://proxy.example.com:8080"
+# timeout = 60
+# cainfo = "/path/to/ca-bundle.crt"
+
+# ============================================================================
+# 環境変数（必要に応じて）
+# ============================================================================
+[env]
+# カスタム環境変数
+RUST_BACKTRACE = "1"
+RUST_LOG = "debug"
+
+# ============================================================================
+# ターゲット別の設定例
+# ============================================================================
+
+# Linux向け
+# [target.x86_64-unknown-linux-gnu]
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]  # 高速リンカー使用
+
+# macOS向け
+# [target.x86_64-apple-darwin]
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+# WebAssembly向け
+# [target.wasm32-unknown-unknown]
+# rustflags = ["-C", "link-arg=--import-memory"]
+
+# ============================================================================
+# 注意事項
+# ============================================================================
+# 1. このファイルは .cargo/config.toml として配置
+# 2. プロジェクト固有の設定はここに、一般的な設定は ~/.cargo/config.toml に
+# 3. Git にコミットしてチーム全体で共有推奨
+# 4. print_stdout/stderr を deny にする場合、ログライブラリ（log, tracing）使用
+# 5. 既存プロジェクトへの導入は段階的に（warn → deny）
