@@ -104,7 +104,6 @@ impl HibikiVideo {
     }
 }
 
-
 /// Fetches data from a URL and parses it into a specified type.
 ///
 /// # Arguments
@@ -137,7 +136,6 @@ fn fetch_and_parse<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, String>
         err_msg
     })
 }
-
 
 fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), String> {
     debug!("{:?}", program);
