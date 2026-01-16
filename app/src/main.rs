@@ -1,7 +1,7 @@
 //! Main entry point for the rs-net-radio application.
 //!
 //! This is a refactored version that uses the new architecture with
-//! BatchRecorder and CronManager for better separation of concerns.
+//! `BatchRecorder` and `CronManager` for better separation of concerns.
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -151,10 +151,14 @@ async fn run_batch_recording(input_path: PathBuf) -> Result<()> {
 ///
 /// Returns an error if cron scheduling fails.
 async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
-    info!("Starting cron scheduling with config: {}", config_path.display());
+    info!(
+        "Starting cron scheduling with config: {}",
+        config_path.display()
+    );
 
     // Load cron configuration
-    let cron_config = load_cron_config(&config_path).context("Failed to load cron configuration")?;
+    let cron_config =
+        load_cron_config(&config_path).context("Failed to load cron configuration")?;
 
     // Create cron manager
     let service = Arc::new(MockRecordService);

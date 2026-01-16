@@ -3,10 +3,12 @@
 //! This module provides comprehensive logging functionality with
 //! automatic error logging to error.log file with rotation.
 
+#![allow(clippy::missing_panics_doc)]
+
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use tracing_subscriber::{
     fmt,
     layer::SubscriberExt,
@@ -50,7 +52,7 @@ impl Default for LoggingConfig {
 /// # Errors
 ///
 /// Returns an error if initialization fails.
-pub fn init_logging(config: LoggingConfig) -> anyhow::Result<()> {
+pub fn init_logging(config: &LoggingConfig) -> anyhow::Result<()> {
     // Create error log file if it doesn't exist
     if !Path::new(&config.error_log_path).exists() {
         std::fs::File::create(&config.error_log_path)?;
@@ -73,12 +75,25 @@ pub fn init_logging(config: LoggingConfig) -> anyhow::Result<()> {
 
     // Set up file layer for error.log
     let config_clone = config.clone();
+    let error_log_path = config_clone.error_log_path.clone();
+
+    // Validate that we can create/open the log file
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&error_log_path)
+        .map_err(|e| anyhow::anyhow!(
+            "Failed to open error log file '{}': {}",
+            error_log_path,
+            e
+        ))?;
+
     let file_layer = fmt::layer()
         .with_writer(move || {
             OpenOptions::new()
                 .create(true)
                 .append(true)
-                .open(&config_clone.error_log_path)
+                .open(&error_log_path)
                 .expect("Failed to open error log file")
         })
         .with_target(true)
@@ -120,6 +135,7 @@ fn check_and_rotate_log(log_path: &str, max_size: usize, num_backups: usize) -> 
     }
 
     let metadata = std::fs::metadata(path)?;
+    #[allow(clippy::cast_possible_truncation)]
     let file_size = metadata.len() as usize;
 
     if file_size < max_size {
@@ -130,7 +146,7 @@ fn check_and_rotate_log(log_path: &str, max_size: usize, num_backups: usize) -> 
 
     // Rotate existing backup files
     for i in (1..num_backups).rev() {
-        let old_backup = format!("{}.{}", log_path, i);
+        let old_backup = format!("{log_path}.{i}");
         let new_backup = format!("{}.{}", log_path, i + 1);
 
         let old_path = Path::new(&old_backup);
@@ -142,7 +158,7 @@ fn check_and_rotate_log(log_path: &str, max_size: usize, num_backups: usize) -> 
     }
 
     // Move current log to .1
-    let backup_path = format!("{}.1", log_path);
+    let backup_path = format!("{log_path}.1");
     std::fs::rename(log_path, &backup_path)?;
 
     // Create new log file
@@ -177,8 +193,7 @@ where
 
     writeln!(
         file,
-        "[{}] ERROR: {} - {}",
-        timestamp, context, error
+        "[{timestamp}] ERROR: {context} - {error}"
     )?;
 
     // Log error chain
@@ -193,7 +208,9 @@ where
     // Log stack trace if available (requires 'backtrace' feature)
     #[cfg(feature = "backtrace")]
     {
-        if let Some(backtrace) = std::backtrace::Backtrace::capture().as_str() {
+        use std::backtrace::BacktraceStatus;
+        let backtrace = std::backtrace::Backtrace::capture();
+        if backtrace.status() == BacktraceStatus::Captured {
             writeln!(file, "  Stack trace:\n{}", backtrace)?;
         }
     }
@@ -220,7 +237,7 @@ pub fn log_warning(message: &str) -> std::io::Result<()> {
         .open(log_path)?;
 
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
-    writeln!(file, "[{}] WARN: {}", timestamp, message)?;
+    writeln!(file, "[{timestamp}] WARN: {message}")?;
 
     file.flush()?;
 
@@ -244,7 +261,7 @@ pub fn log_info(message: &str) -> std::io::Result<()> {
         .open(log_path)?;
 
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
-    writeln!(file, "[{}] INFO: {}", timestamp, message)?;
+    writeln!(file, "[{timestamp}] INFO: {message}")?;
 
     file.flush()?;
 
@@ -316,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_located_error() {
-        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "test error");
+        let io_error = std::io::Error::other("test error");
         let located = located_error!(io_error);
 
         assert_eq!(located.file, file!());

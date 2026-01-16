@@ -1,11 +1,11 @@
-use std::time::Duration;
+use core::time::Duration;
 use tokio::time::{timeout, Duration as TokioDuration};
 use tokio_cron_scheduler::{Job, JobScheduler};
 // Removed unused tokio::sync::oneshot
 use tokio::sync::mpsc;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn run_one_shot_job() -> Result<(), Box<dyn std::error::Error>> {
+async fn run_one_shot_job() -> Result<(), Box<dyn core::error::Error>> {
     // 1. Create channel. 'mut rx' is needed to call recv()
     let (tx, mut rx) = mpsc::channel::<()>(1);
 
@@ -31,7 +31,7 @@ async fn run_one_shot_job() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn parse_cron_with_year_field() -> Result<(), Box<dyn std::error::Error>> {
+async fn parse_cron_with_year_field() -> Result<(), Box<dyn core::error::Error>> {
     let _job = Job::new("0 0 0 1 1 * 2026", |_u, _l| {
         // nop
     })?;

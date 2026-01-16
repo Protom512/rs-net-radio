@@ -101,7 +101,7 @@ pub async fn record_streaming(
 ///
 /// # Arguments
 ///
-/// * `streams` - Vector of (url, output_path) tuples.
+/// * `streams` - Vector of (url, `output_path`) tuples.
 /// * `config` - Configuration for the streaming recording.
 ///
 /// # Errors
@@ -140,7 +140,7 @@ pub async fn record_batch_streaming(
             Ok(r) => results.push(r),
             Err(e) => {
                 error!("Task panicked: {}", e);
-                results.push(Err(anyhow::anyhow!("Task panicked: {}", e)));
+                results.push(Err(anyhow::anyhow!("Task panicked: {e}")));
             }
         }
     }

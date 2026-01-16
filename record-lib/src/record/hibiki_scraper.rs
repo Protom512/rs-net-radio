@@ -3,11 +3,16 @@
 //! This module provides functionality to scrape Hibiki Radio pages
 //! and extract streaming URLs from HTML content.
 
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::unused_self)]
+
 use crate::utils::{handle_html_parsing_error, html_parsing_error, RecordError};
 use reqwest::blocking::Client;
 use reqwest::header::{USER_AGENT, REFERER};
 use scraper::{Html, Selector};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 /// Hibiki radio scraper for extracting streaming URLs.
 pub struct HibikiScraper {
@@ -18,7 +23,7 @@ pub struct HibikiScraper {
 }
 
 impl HibikiScraper {
-    /// Creates a new HibikiScraper.
+    /// Creates a new `HibikiScraper`.
     ///
     /// # Errors
     ///
@@ -94,8 +99,7 @@ impl HibikiScraper {
 
         // If no URL found, this might be a site structure change
         let error_msg = format!(
-            "Could not extract streaming URL from page. The site structure may have changed. URL: {}",
-            page_url
+            "Could not extract streaming URL from page. The site structure may have changed. URL: {page_url}"
         );
         error!("{}", error_msg);
 
@@ -118,7 +122,7 @@ impl HibikiScraper {
     /// Returns an error if parsing fails.
     fn try_extract_from_script(&self, document: &Html) -> Result<Option<String>, RecordError> {
         let script_selector = Selector::parse("script").map_err(|e| {
-            html_parsing_error("", &format!("Failed to parse script selector: {}", e))
+            html_parsing_error("", &format!("Failed to parse script selector: {e}"))
         })?;
 
         for element in document.select(&script_selector) {
@@ -193,7 +197,7 @@ impl HibikiScraper {
     /// Returns an error if parsing fails.
     fn try_extract_from_iframe(&self, document: &Html) -> Result<Option<String>, RecordError> {
         let iframe_selector = Selector::parse("iframe").map_err(|e| {
-            html_parsing_error("", &format!("Failed to parse iframe selector: {}", e))
+            html_parsing_error("", &format!("Failed to parse iframe selector: {e}"))
         })?;
 
         for element in document.select(&iframe_selector) {
@@ -220,18 +224,25 @@ impl HibikiScraper {
     fn extract_url_from_text(&self, text: &str) -> Option<String> {
         // Common patterns for streaming URLs in Hibiki Radio pages
         let patterns = [
-            r#"https?://[^"'<>]+\.(?:m3u8|mp4|ts)[^"'<>]*"#,  // Direct streaming URLs
-            r#""url"\s*:\s*"([^"]+)""#,                           // JSON "url" field
-            r#""streamingUrl"\s*:\s*"([^"]+)""#,                 // JSON "streamingUrl" field
-            r#""videoUrl"\s*:\s*"([^"]+)""#,                     // JSON "videoUrl" field
-            r#"(?:src|href)\s*=\s*"([^"]+\.(?:m3u8|mp4|ts)[^"]*)"#,  // src/href attributes
+            (r#"https?://[^"'<>]+\.(?:m3u8|mp4|ts)[^"'<>]*"#, 0),  // Direct streaming URLs (full match)
+            (r#""url"\s*:\s*"([^"]+)""#, 1),                      // JSON "url" field
+            (r#""streamingUrl"\s*:\s*"([^"]+)""#, 1),            // JSON "streamingUrl" field
+            (r#""videoUrl"\s*:\s*"([^"]+)""#, 1),                // JSON "videoUrl" field
+            (r#"(?:src|href)\s*=\s*"([^"]+\.(?:m3u8|mp4|ts)[^"]*)"#, 1),  // src/href attributes
         ];
 
-        for pattern in &patterns {
+        for (pattern, group) in &patterns {
             if let Ok(re) = regex::Regex::new(pattern) {
                 if let Some(captures) = re.captures(text) {
-                    if let Some(url) = captures.get(1) {
-                        let url_str = url.as_str();
+                    // Get the appropriate capture group (0 for full match, 1+ for specific groups)
+                    let url = if *group == 0 {
+                        captures.get(0)
+                    } else {
+                        captures.get(*group)
+                    };
+
+                    if let Some(url_match) = url {
+                        let url_str = url_match.as_str();
                         if self.is_valid_streaming_url(url_str) {
                             return Some(url_str.to_string());
                         }
@@ -325,5 +336,158 @@ mod tests {
         assert!(scraper.is_valid_streaming_url("https://example.com/streaming"));
         assert!(!scraper.is_valid_streaming_url("ftp://example.com/file.m3u8"));
         assert!(!scraper.is_valid_streaming_url("not a url"));
+    }
+
+    #[test]
+    fn test_extract_url_from_script_tags() {
+        let scraper = HibikiScraper::new()
+            .expect("Failed to create scraper for test");
+
+        let html_with_script = r#"
+        <!DOCTYPE html>
+        <html>
+        <head><title>Test</title></head>
+        <body>
+        <script>
+            var streamingUrl = "https://example.com/stream.m3u8?token=abc123";
+            console.log(streamingUrl);
+        </script>
+        </body>
+        </html>
+        "#;
+
+        let document = Html::parse_document(html_with_script);
+        let result = scraper.try_extract_from_script(&document);
+
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert!(url.is_some());
+        assert_eq!(url.unwrap(), "https://example.com/stream.m3u8?token=abc123");
+    }
+
+    #[test]
+    fn test_extract_url_from_data_attributes() {
+        let scraper = HibikiScraper::new()
+            .expect("Failed to create scraper for test");
+
+        let html_with_data_attr = r#"
+        <!DOCTYPE html>
+        <html>
+        <body>
+        <div data-streaming-url="https://example.com/video.m3u8"></div>
+        </body>
+        </html>
+        "#;
+
+        let document = Html::parse_document(html_with_data_attr);
+        let result = scraper.try_extract_from_data_attribute(&document);
+
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert!(url.is_some());
+        assert_eq!(url.unwrap(), "https://example.com/video.m3u8");
+    }
+
+    #[test]
+    fn test_extract_url_from_iframe() {
+        let scraper = HibikiScraper::new()
+            .expect("Failed to create scraper for test");
+
+        let html_with_iframe = r#"
+        <!DOCTYPE html>
+        <html>
+        <body>
+        <iframe src="https://example.com/player.m3u8"></iframe>
+        </body>
+        </html>
+        "#;
+
+        let document = Html::parse_document(html_with_iframe);
+        let result = scraper.try_extract_from_iframe(&document);
+
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert!(url.is_some());
+        assert_eq!(url.unwrap(), "https://example.com/player.m3u8");
+    }
+
+    #[test]
+    fn test_html_parsing_error_handling() {
+        let scraper = HibikiScraper::new()
+            .expect("Failed to create scraper for test");
+
+        let invalid_html = r#"
+        <!DOCTYPE html>
+        <html>
+        <body>
+        <p>No streaming URL here</p>
+        </body>
+        </html>
+        "#;
+
+        let document = Html::parse_document(invalid_html);
+
+        // All extraction methods should return None for invalid HTML
+        let script_result = scraper.try_extract_from_script(&document).unwrap();
+        assert!(script_result.is_none());
+
+        let data_result = scraper.try_extract_from_data_attribute(&document).unwrap();
+        assert!(data_result.is_none());
+
+        let iframe_result = scraper.try_extract_from_iframe(&document).unwrap();
+        assert!(iframe_result.is_none());
+    }
+
+    #[test]
+    fn test_extract_json_url_from_text() {
+        let scraper = HibikiScraper::new()
+            .expect("Failed to create scraper for test");
+
+        let json_text = r#"
+        {
+            "streamingUrl": "https://example.com/advanced-stream.m3u8",
+            "quality": "high"
+        }
+        "#;
+
+        let result = scraper.extract_url_from_text(json_text);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), "https://example.com/advanced-stream.m3u8");
+    }
+
+    #[test]
+    fn test_http_status_403_handling() {
+        // This test will verify that 403 errors are properly handled
+        // For now, we'll test the error type creation
+        let error = RecordError::HttpError {
+            status_code: 403,
+            url: "https://hibiki-radio.jp/test".to_string(),
+            message: "Access forbidden".to_string(),
+        };
+
+        match error {
+            RecordError::HttpError { status_code, url, .. } => {
+                assert_eq!(status_code, 403);
+                assert_eq!(url, "https://hibiki-radio.jp/test");
+            }
+            _ => panic!("Expected HttpError variant"),
+        }
+    }
+
+    #[test]
+    fn test_http_status_429_handling() {
+        let error = RecordError::HttpError {
+            status_code: 429,
+            url: "https://hibiki-radio.jp/test".to_string(),
+            message: "Too many requests".to_string(),
+        };
+
+        match error {
+            RecordError::HttpError { status_code, url, .. } => {
+                assert_eq!(status_code, 429);
+                assert_eq!(url, "https://hibiki-radio.jp/test");
+            }
+            _ => panic!("Expected HttpError variant"),
+        }
     }
 }

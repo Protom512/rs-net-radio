@@ -1,6 +1,6 @@
 //! Cron manager for scheduled recording tasks.
 //!
-//! This module implements the CronManager which loads schedules from configuration
+//! This module implements the `CronManager` which loads schedules from configuration
 //! and triggers recording tasks at specified times using tokio-cron-scheduler.
 
 use std::sync::Arc;
@@ -23,7 +23,7 @@ pub struct CronManager {
 }
 
 impl CronManager {
-    /// Creates a new CronManager.
+    /// Creates a new `CronManager`.
     ///
     /// # Arguments
     ///
@@ -34,7 +34,7 @@ impl CronManager {
     /// Returns `RecordError` if the scheduler cannot be created.
     pub async fn new(recording_service: Arc<dyn RecordService>) -> Result<Self, RecordError> {
         let scheduler = JobScheduler::new().await.map_err(|e| {
-            RecordError::Other(format!("Failed to create job scheduler: {}", e))
+            RecordError::Other(format!("Failed to create job scheduler: {e}"))
         })?;
 
         Ok(Self {
@@ -79,7 +79,7 @@ impl CronManager {
                 info!("Starting scheduled recording: {}", id);
 
                 match Self::record_with_retry(&service, &stream_url, &output_path, duration).await {
-                    Ok(_) => {
+                    Ok(()) => {
                         info!("Scheduled recording completed: {}", id);
                     }
                     Err(e) => {
@@ -88,13 +88,13 @@ impl CronManager {
                 }
             })
         })
-        .map_err(|e| RecordError::Other(format!("Failed to create job: {}", e)))?;
+        .map_err(|e| RecordError::Other(format!("Failed to create job: {e}")))?;
 
         let scheduler = self.scheduler.lock().await;
         scheduler
             .add(job)
             .await
-            .map_err(|e| RecordError::Other(format!("Failed to add job: {}", e)))?;
+            .map_err(|e| RecordError::Other(format!("Failed to add job: {e}")))?;
 
         Ok(())
     }
@@ -111,7 +111,7 @@ impl CronManager {
         scheduler
             .start()
             .await
-            .map_err(|e| RecordError::Other(format!("Failed to start scheduler: {}", e)))?;
+            .map_err(|e| RecordError::Other(format!("Failed to start scheduler: {e}")))?;
 
         Ok(())
     }
@@ -128,7 +128,7 @@ impl CronManager {
         scheduler
             .shutdown()
             .await
-            .map_err(|e| RecordError::Other(format!("Failed to stop scheduler: {}", e)))?;
+            .map_err(|e| RecordError::Other(format!("Failed to stop scheduler: {e}")))?;
 
         Ok(())
     }
@@ -187,6 +187,7 @@ impl CronManager {
 mod tests {
     use super::*;
     use crate::domain::metadata::RecordingMetadata;
+    use async_trait::async_trait;
     use chrono::Utc;
     use std::sync::Arc;
 

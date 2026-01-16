@@ -3,7 +3,8 @@
 //! This module provides structured error handling with proper classification
 //! of fatal vs recoverable errors, context propagation, and error logging.
 
-use std::sync::Arc;
+#![allow(clippy::collapsible_match)]
+
 use thiserror::Error;
 
 /// Classification of error severity.
@@ -50,7 +51,7 @@ pub enum RecordingError {
     #[error("Configuration error: {0}")]
     ConfigError(String),
 
-    /// FFmpeg execution error.
+    /// `FFmpeg` execution error.
     #[error("FFmpeg error: {0}")]
     FfmpegError(String),
 
@@ -89,25 +90,23 @@ pub enum RecordingError {
 
 impl RecordingError {
     /// Returns the severity level of this error.
+    #[must_use]
     pub fn severity(&self) -> ErrorSeverity {
         match self {
             RecordingError::HttpStatusError { status, .. } => match status {
                 403 | 429 => ErrorSeverity::Fatal,
-                500..=599 => ErrorSeverity::Recoverable,
                 _ => ErrorSeverity::Recoverable,
             },
-            RecordingError::HtmlParsingError { .. } => ErrorSeverity::Fatal,
-            RecordingError::ConfigError(_) => ErrorSeverity::Fatal,
-            RecordingError::MemoryLimitExceeded { .. } => ErrorSeverity::Fatal,
-            RecordingError::CommandFailed { code: Some(1..=125), .. } => ErrorSeverity::Recoverable,
-            RecordingError::CommandFailed { code: Some(126..), .. } => ErrorSeverity::Fatal,
-            RecordingError::Io(_) | RecordingError::JsonError(_) => ErrorSeverity::Recoverable,
-            RecordingError::Timeout { .. } => ErrorSeverity::Recoverable,
+            RecordingError::HtmlParsingError { .. }
+            | RecordingError::ConfigError(_)
+            | RecordingError::MemoryLimitExceeded { .. }
+            | RecordingError::CommandFailed { code: Some(126..), .. } => ErrorSeverity::Fatal,
             _ => ErrorSeverity::Recoverable,
         }
     }
 
     /// Returns the exit code associated with this error (if any).
+    #[must_use]
     pub fn exit_code(&self) -> Option<i32> {
         match self {
             RecordingError::HttpStatusError { status: 403 | 429, .. } => Some(2),
@@ -119,11 +118,13 @@ impl RecordingError {
     }
 
     /// Checks if this error is fatal and requires application termination.
+    #[must_use]
     pub fn is_fatal(&self) -> bool {
         matches!(self.severity(), ErrorSeverity::Fatal)
     }
 
     /// Creates an HTTP status error.
+    #[must_use]
     pub fn http_status(status: u16, url: &str, message: &str) -> Self {
         RecordingError::HttpStatusError {
             status,
@@ -134,6 +135,7 @@ impl RecordingError {
     }
 
     /// Creates an HTML parsing error.
+    #[must_use]
     pub fn html_parsing(url: &str, message: &str) -> Self {
         RecordingError::HtmlParsingError {
             url: url.to_string(),
@@ -142,6 +144,7 @@ impl RecordingError {
     }
 
     /// Creates a rate limit error.
+    #[must_use]
     pub fn rate_limit(url: &str) -> Self {
         RecordingError::RateLimitError {
             url: url.to_string(),
@@ -149,12 +152,13 @@ impl RecordingError {
     }
 
     /// Creates a memory limit error.
+    #[must_use]
     pub fn memory_limit(current: usize, limit: usize) -> Self {
         RecordingError::MemoryLimitExceeded { current, limit }
     }
 }
 
-/// Result type alias for RecordingError.
+/// Result type alias for `RecordingError`.
 pub type Result<T> = std::result::Result<T, RecordingError>;
 
 /// Handles a recording error with appropriate action based on severity.
@@ -237,10 +241,10 @@ fn log_error_to_file(error: &RecordingError) -> std::io::Result<()> {
         ErrorSeverity::Warning => "WARN",
     };
 
-    writeln!(file, "[{}] [{}] {}", timestamp, severity, error)?;
+    writeln!(file, "[{timestamp}] [{severity}] {error}")?;
 
     if let Some(source) = std::error::Error::source(error) {
-        writeln!(file, "  Caused by: {}", source)?;
+        writeln!(file, "  Caused by: {source}")?;
     }
 
     Ok(())

@@ -38,40 +38,65 @@ pub enum RecordError {
     },
 }
 
+// Manual Clone implementation since reqwest::Error and serde_json::Error don't implement Clone
+impl Clone for RecordError {
+    fn clone(&self) -> Self {
+        match self {
+            RecordError::Io(e) => RecordError::Other(format!("IO error: {e}")),
+            RecordError::EnvVar(e) => RecordError::Other(format!("Environment variable error: {e}")),
+            RecordError::Reqwest(e) => RecordError::Other(format!("Reqwest error: {e}")),
+            RecordError::SerdeJson(e) => RecordError::Other(format!("Serde JSON error: {e}")),
+            RecordError::CommandFailed { command, exit_code, stderr } => RecordError::CommandFailed {
+                command: command.clone(),
+                exit_code: *exit_code,
+                stderr: stderr.clone(),
+            },
+            RecordError::TempDir => RecordError::TempDir,
+            RecordError::Other(s) => RecordError::Other(s.clone()),
+            RecordError::HttpError { status_code, url, message } => RecordError::HttpError {
+                status_code: *status_code,
+                url: url.clone(),
+                message: message.clone(),
+            },
+            RecordError::HtmlParsingError { url, message } => RecordError::HtmlParsingError {
+                url: url.clone(),
+                message: message.clone(),
+            },
+        }
+    }
+}
+
 impl fmt::Display for RecordError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            RecordError::Io(e) => write!(f, "IO error: {}", e),
-            RecordError::EnvVar(e) => write!(f, "Environment variable error: {}", e),
-            RecordError::Reqwest(e) => write!(f, "Reqwest error: {}", e),
-            RecordError::SerdeJson(e) => write!(f, "Serde JSON error: {}", e),
+            RecordError::Io(e) => write!(f, "IO error: {e}"),
+            RecordError::EnvVar(e) => write!(f, "Environment variable error: {e}"),
+            RecordError::Reqwest(e) => write!(f, "Reqwest error: {e}"),
+            RecordError::SerdeJson(e) => write!(f, "Serde JSON error: {e}"),
             RecordError::CommandFailed {
                 command,
                 exit_code,
                 stderr,
             } => write!(
                 f,
-                "Command '{}' failed with code {:?}. Stderr: {}",
-                command, exit_code, stderr
+                "Command '{command}' failed with code {exit_code:?}. Stderr: {stderr}"
             ),
             RecordError::TempDir => write!(f, "Failed to get temporary directory path"),
-            RecordError::Other(s) => write!(f, "Other error: {}", s),
+            RecordError::Other(s) => write!(f, "Other error: {s}"),
             RecordError::HttpError {
                 status_code,
                 url,
                 message,
             } => write!(
                 f,
-                "HTTP error {} for {}: {}",
-                status_code, url, message
+                "HTTP error {status_code} for {url}: {message}"
             ),
             RecordError::HtmlParsingError {
                 url,
                 message,
             } => write!(
                 f,
-                "HTML parsing error for {}: {}",
-                url, message
+                "HTML parsing error for {url}: {message}"
             ),
         }
     }
@@ -103,26 +128,32 @@ impl From<serde_json::Error> for RecordError {
 const RS_NET_ARCHIVE_PATH_ENV_VAR: &str = "RS_NET_ARCHIVE_PATH";
 
 /// Ensures the archive path for a given service exists and returns it.
-/// The path will be "{RS_NET_ARCHIVE_PATH}/{service_name}".
+/// The path will be "{`RS_NET_ARCHIVE_PATH}/{service_name`}".
+///
+/// # Errors
+///
+/// Returns `RecordError` if the environment variable is not set or if directory creation fails.
 pub fn ensure_archive_path(service_name: &str) -> Result<String, RecordError> {
     let base_path = env::var(RS_NET_ARCHIVE_PATH_ENV_VAR)?; // Uses From<VarError>
 
-    let service_path_str = format!("{}/{}", base_path, service_name);
+    let service_path_str = format!("{base_path}/{service_name}");
     let service_path = Path::new(&service_path_str);
 
     if !service_path.is_dir() {
         fs::create_dir_all(service_path)?; // Uses From<io::Error>
-        debug!("Created directory: {}", service_path_str);
+        debug!("Created directory: {service_path_str}");
     }
     Ok(service_path_str)
 }
 
 /// Sanitizes a filename by replacing characters forbidden by common filesystems.
+#[must_use] 
 pub fn sanitize_filename(filename: &str) -> String {
     sanitize_filename_crate::sanitize(filename)
 }
 
 /// Creates an HTTP error from status code and URL.
+#[must_use] 
 pub fn http_error(status_code: u16, url: &str) -> RecordError {
     let message = match status_code {
         403 => "Access forbidden - may need authentication or different headers",
@@ -140,6 +171,11 @@ pub fn http_error(status_code: u16, url: &str) -> RecordError {
 }
 
 /// Checks HTTP response status and returns appropriate error if needed.
+///
+/// # Errors
+///
+/// Returns `RecordError` if the response status indicates an error (4xx or 5xx).
+/// Note: For status codes 403 and 429, this function will exit the process with code 2.
 pub fn check_http_status(response: &reqwest::blocking::Response, url: &str) -> Result<(), RecordError> {
     let status = response.status();
 
@@ -149,7 +185,7 @@ pub fn check_http_status(response: &reqwest::blocking::Response, url: &str) -> R
         // Handle specific error codes with custom exit behavior
         match status_code {
             403 | 429 => {
-                log::error!("HTTP {} error for {}. Access denied or rate limited.", status_code, url);
+                log::error!("HTTP {status_code} error for {url}. Access denied or rate limited.");
                 log::error!("This application will exit with code 2. Please try again later or check your access permissions.");
                 std::process::exit(2);
             }
@@ -163,6 +199,7 @@ pub fn check_http_status(response: &reqwest::blocking::Response, url: &str) -> R
 }
 
 /// Creates an HTML parsing error.
+#[must_use] 
 pub fn html_parsing_error(url: &str, message: &str) -> RecordError {
     RecordError::HtmlParsingError {
         url: url.to_string(),
@@ -171,9 +208,10 @@ pub fn html_parsing_error(url: &str, message: &str) -> RecordError {
 }
 
 /// Checks for HTML parsing errors and handles site structure changes.
+#[must_use] 
 pub fn handle_html_parsing_error(url: &str, error: &str) -> RecordError {
-    log::error!("HTML parsing failed for URL: {}", url);
-    log::error!("Error: {}", error);
+    log::error!("HTML parsing failed for URL: {url}");
+    log::error!("Error: {error}");
     log::error!("This may indicate a change in the website structure. The application will exit with code 3.");
     log::error!("Please report this issue so the scraper can be updated.");
 

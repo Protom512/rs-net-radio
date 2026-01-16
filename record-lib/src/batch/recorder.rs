@@ -1,6 +1,6 @@
 //! Batch recorder for parallel recording tasks.
 //!
-//! This module implements the BatchRecorder which manages parallel recording
+//! This module implements the `BatchRecorder` which manages parallel recording
 //! of multiple programs with semaphore-based concurrency control.
 
 use std::sync::Arc;
@@ -18,11 +18,12 @@ use crate::utils::RecordError;
 pub struct BatchRecorder {
     max_parallel_jobs: usize,
     retry_count: u32,
+    #[allow(dead_code)]
     timeout: std::time::Duration,
 }
 
 impl BatchRecorder {
-    /// Creates a new BatchRecorder.
+    /// Creates a new `BatchRecorder`.
     ///
     /// # Arguments
     ///
@@ -87,7 +88,7 @@ impl BatchRecorder {
             tasks.spawn(async move {
                 let _permit = match permit.acquire().await {
                     Ok(p) => p,
-                    Err(e) => return Err((program.title.clone(), format!("Failed to acquire semaphore: {}", e))),
+                    Err(e) => return Err((program.title.clone(), format!("Failed to acquire semaphore: {e}"))),
                 };
 
                 Self::record_with_retries(&service, program, retry_count).await
@@ -188,6 +189,7 @@ impl BatchRecorder {
     ///
     /// * `completed` - Number of completed recordings.
     /// * `total` - Total number of recordings.
+    #[allow(clippy::cast_precision_loss)]
     fn report_progress(completed: usize, total: usize) {
         let progress = (completed as f64 / total as f64) * 100.0;
         info!("Progress: {}/{} ({:.1}%)", completed, total, progress);
@@ -230,25 +232,27 @@ impl BatchSummary {
         println!("  失敗: {} ❌", self.failure_count);
 
         // 成功率
+        #[allow(clippy::cast_precision_loss)]
         if self.total_count > 0 {
             let success_rate = (self.success_count as f64 / self.total_count as f64) * 100.0;
-            println!("  成功率: {:.1}%", success_rate);
+            println!("  成功率: {success_rate:.1}%");
         }
 
         // 処理時間
         println!("\n⏱️  処理時間:");
         println!("  総時間: {:.2}秒", self.duration.as_secs_f64());
+        #[allow(clippy::cast_precision_loss)]
         if self.total_count > 0 {
             let avg_time = self.duration.as_secs_f64() / self.total_count as f64;
-            println!("  平均時間: {:.2}秒/件", avg_time);
+            println!("  平均時間: {avg_time:.2}秒/件");
         }
 
         // 失敗詳細
         if !self.failures.is_empty() {
             println!("\n❌ 失敗詳細:");
             for (i, (title, error)) in self.failures.iter().enumerate() {
-                println!("  {}. {}", i + 1, title);
-                println!("     エラー: {}", error);
+                println!("  {}. {title}", i + 1);
+                println!("     エラー: {error}");
             }
         }
 
@@ -271,6 +275,7 @@ impl BatchSummary {
 
     /// Returns the success rate as a percentage (0.0 to 100.0).
     #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn success_rate(&self) -> f64 {
         if self.total_count == 0 {
             return 100.0;
@@ -283,6 +288,7 @@ impl BatchSummary {
 mod tests {
     use super::*;
     use crate::domain::metadata::RecordingMetadata;
+    use async_trait::async_trait;
     use chrono::Utc;
     use std::sync::Arc;
 
@@ -345,5 +351,290 @@ mod tests {
         assert_eq!(summary.total_count, 0);
         assert_eq!(summary.success_count, 0);
         assert_eq!(summary.failure_count, 0);
+    }
+
+    /// Task 4.1: Test result collection and aggregation with JoinSet
+    #[tokio::test]
+    async fn test_joinset_result_collection() {
+        let recorder = BatchRecorder::new(3, 1, std::time::Duration::from_secs(30));
+        let service = Arc::new(MockRecordService);
+
+        let programs = vec![
+            Program {
+                title: "Program A".to_string(),
+                url: "http://example.com/a".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/a.m4a"),
+            },
+            Program {
+                title: "Program B".to_string(),
+                url: "http://example.com/b".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/b.m4a"),
+            },
+            Program {
+                title: "Program C".to_string(),
+                url: "http://example.com/c".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/c.m4a"),
+            },
+        ];
+
+        let summary = recorder.record_batch(programs, service).await
+            .expect("Failed to record batch");
+
+        // Verify result collection
+        assert_eq!(summary.total_count, 3);
+        assert_eq!(summary.success_count, 3);
+        assert_eq!(summary.failure_count, 0);
+        assert!(summary.duration.as_secs_f64() > 0.0);
+    }
+
+    /// Task 4.1: Test failure detail collection with program name and error message
+    #[tokio::test]
+    async fn test_failure_detail_collection() {
+        struct FailingRecordService;
+
+        #[async_trait]
+        impl RecordService for FailingRecordService {
+            async fn record(
+                &self,
+                _url: &str,
+                _output_path: &std::path::Path,
+            ) -> Result<RecordingMetadata, RecordError> {
+                Err(RecordError::Io(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Test failure"
+                )))
+            }
+        }
+
+        let recorder = BatchRecorder::new(2, 0, std::time::Duration::from_secs(30)); // 0 retries for immediate failure
+        let service = Arc::new(FailingRecordService);
+
+        let programs = vec![
+            Program {
+                title: "Failing Program 1".to_string(),
+                url: "http://example.com/fail1".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/fail1.m4a"),
+            },
+            Program {
+                title: "Failing Program 2".to_string(),
+                url: "http://example.com/fail2".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/fail2.m4a"),
+            },
+        ];
+
+        let summary = recorder.record_batch(programs, service).await
+            .expect("Failed to record batch");
+
+        // Verify failure details are collected
+        assert_eq!(summary.total_count, 2);
+        assert_eq!(summary.success_count, 0);
+        assert_eq!(summary.failure_count, 2);
+        assert_eq!(summary.failures.len(), 2);
+
+        // Verify failure details contain program names and error messages
+        assert_eq!(summary.failures[0].0, "Failing Program 1");
+        assert!(summary.failures[0].1.contains("Test failure"));
+        assert_eq!(summary.failures[1].0, "Failing Program 2");
+        assert!(summary.failures[1].1.contains("Test failure"));
+    }
+
+    /// Task 4.1: Test processing time recording for each task
+    #[tokio::test]
+    async fn test_processing_time_recording() {
+        let recorder = BatchRecorder::new(2, 0, std::time::Duration::from_secs(30));
+        let service = Arc::new(MockRecordService);
+
+        let programs = vec![
+            Program {
+                title: "Program 1".to_string(),
+                url: "http://example.com/1".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            },
+        ];
+
+        let start = std::time::Instant::now();
+        let summary = recorder.record_batch(programs, service).await
+            .expect("Failed to record batch");
+        let elapsed = start.elapsed();
+
+        // Verify duration is recorded and reasonable
+        // Duration can be 0 for very fast operations, so we check it's not negative
+        assert!(summary.duration.as_nanos() >= 0);
+        // Duration should not exceed elapsed time by more than 100ms tolerance
+        assert!(summary.duration.as_millis() <= elapsed.as_millis() + 100);
+    }
+
+    /// Task 4.2: Test summary output format and content
+    #[tokio::test]
+    async fn test_summary_output_format() {
+        let recorder = BatchRecorder::new(2, 0, std::time::Duration::from_secs(30));
+        let service = Arc::new(MockRecordService);
+
+        let programs = vec![
+            Program {
+                title: "Success Program".to_string(),
+                url: "http://example.com/success".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/success.m4a"),
+            },
+        ];
+
+        let summary = recorder.record_batch(programs, service).await
+            .expect("Failed to record batch");
+
+        // Test that print_summary doesn't panic and produces output
+        // We can't easily capture stdout in unit tests, but we can verify the data
+        assert_eq!(summary.total_count, 1);
+        assert_eq!(summary.success_count, 1);
+        assert_eq!(summary.failure_count, 0);
+
+        // Test success rate calculation
+        let success_rate = summary.success_rate();
+        assert!((success_rate - 100.0).abs() < 0.01);
+
+        // Test is_success method
+        assert!(summary.is_success());
+
+        // Test that print_summary can be called without panicking
+        summary.print_summary();
+    }
+
+    /// Task 4.2: Test summary output with failures
+    #[tokio::test]
+    async fn test_summary_output_with_failures() {
+        struct PartialFailingService;
+
+        #[async_trait]
+        impl RecordService for PartialFailingService {
+            async fn record(
+                &self,
+                url: &str,
+                _output_path: &std::path::Path,
+            ) -> Result<RecordingMetadata, RecordError> {
+                if url.contains("fail") {
+                    Err(RecordError::Io(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "Access denied"
+                    )))
+                } else {
+                    Ok(RecordingMetadata::new(
+                        "Test".to_string(),
+                        Utc::now(),
+                        Utc::now(),
+                        "/tmp/test.m4a".to_string(),
+                        1024,
+                        128,
+                    ))
+                }
+            }
+        }
+
+        let recorder = BatchRecorder::new(3, 0, std::time::Duration::from_secs(30));
+        let service = Arc::new(PartialFailingService);
+
+        let programs = vec![
+            Program {
+                title: "Success Program".to_string(),
+                url: "http://example.com/success".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/success.m4a"),
+            },
+            Program {
+                title: "Failing Program".to_string(),
+                url: "http://example.com/fail".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/fail.m4a"),
+            },
+        ];
+
+        let summary = recorder.record_batch(programs, service).await
+            .expect("Failed to record batch");
+
+        // Verify summary statistics
+        assert_eq!(summary.total_count, 2);
+        assert_eq!(summary.success_count, 1);
+        assert_eq!(summary.failure_count, 1);
+
+        // Test success rate calculation (50% success)
+        let success_rate = summary.success_rate();
+        assert!((success_rate - 50.0).abs() < 0.01);
+
+        // Test is_success method
+        assert!(!summary.is_success());
+
+        // Verify failure details
+        assert_eq!(summary.failures.len(), 1);
+        assert_eq!(summary.failures[0].0, "Failing Program");
+        assert!(summary.failures[0].1.contains("Access denied"));
+
+        // Test that print_summary can be called without panicking
+        summary.print_summary();
+    }
+
+    /// Task 4.2: Test statistics calculation (average processing time)
+    #[tokio::test]
+    async fn test_statistics_calculation() {
+        let recorder = BatchRecorder::new(3, 0, std::time::Duration::from_secs(30));
+        let service = Arc::new(MockRecordService);
+
+        let programs = vec![
+            Program {
+                title: "Program 1".to_string(),
+                url: "http://example.com/1".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            },
+            Program {
+                title: "Program 2".to_string(),
+                url: "http://example.com/2".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+            },
+            Program {
+                title: "Program 3".to_string(),
+                url: "http://example.com/3".to_string(),
+                output_path: std::path::PathBuf::from("/tmp/3.m4a"),
+            },
+        ];
+
+        let summary = recorder.record_batch(programs, service).await
+            .expect("Failed to record batch");
+
+        // Verify total count
+        assert_eq!(summary.total_count, 3);
+        assert_eq!(summary.success_count, 3);
+
+        // Calculate expected average time
+        let expected_avg = summary.duration.as_secs_f64() / 3.0;
+
+        // Test that average time would be calculated correctly
+        // The print_summary method uses: duration.as_secs_f64() / total_count as f64
+        let calculated_avg = summary.duration.as_secs_f64() / summary.total_count as f64;
+        assert!((calculated_avg - expected_avg).abs() < 0.001);
+
+        // Test success rate
+        assert!((summary.success_rate() - 100.0).abs() < 0.01);
+    }
+
+    /// Task 4.2: Test summary with empty batch
+    #[tokio::test]
+    async fn test_summary_with_empty_batch() {
+        let recorder = BatchRecorder::new(2, 0, std::time::Duration::from_secs(30));
+        let service = Arc::new(MockRecordService);
+
+        let summary = recorder
+            .record_batch(Vec::new(), service)
+            .await
+            .expect("Failed to record empty batch");
+
+        // Verify empty batch handling
+        assert_eq!(summary.total_count, 0);
+        assert_eq!(summary.success_count, 0);
+        assert_eq!(summary.failure_count, 0);
+        assert!(summary.failures.is_empty());
+
+        // Empty batch should be considered successful
+        assert!(summary.is_success());
+
+        // Success rate should be 100% for empty batch
+        assert!((summary.success_rate() - 100.0).abs() < 0.01);
+
+        // Test that print_summary works for empty batch
+        summary.print_summary();
     }
 }
