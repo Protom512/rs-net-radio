@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 /// Main configuration structure.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     /// Batch recording configuration.
     #[serde(default)]
@@ -22,16 +22,6 @@ pub struct Config {
     /// Logging configuration.
     #[serde(default)]
     pub logging: LoggingConfig,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            batch: BatchConfig::default(),
-            streaming: StreamingConfig::default(),
-            logging: LoggingConfig::default(),
-        }
-    }
 }
 
 /// Batch recording configuration.
@@ -158,19 +148,11 @@ fn default_log_to_stdout() -> bool {
 }
 
 /// Cron configuration structure.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CronConfig {
     /// Scheduled recording tasks.
     #[serde(default)]
     pub schedules: Vec<Schedule>,
-}
-
-impl Default for CronConfig {
-    fn default() -> Self {
-        Self {
-            schedules: Vec::new(),
-        }
-    }
 }
 
 /// A single scheduled recording task.

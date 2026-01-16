@@ -67,6 +67,8 @@ module_name_repetitions = "allow"  # モジュール名の重複許可
 similar_names = "allow"            # 似た変数名許可
 too_many_lines = "allow"           # 行数制限緩和
 struct_excessive_bools = "allow"   # 構造体のboolフィールド数制限緩和
+mod_module_files = "allow"         # mod.rsファイルの使用を許可
+pub_use = "allow"                  # pub useの使用を許可
 
 # --- ドキュメント ---
 missing_errors_doc = "warn"    # Error戻り値のドキュメント

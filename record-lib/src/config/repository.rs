@@ -56,10 +56,10 @@ impl ConfigRepository for FileConfigRepository {
 
         let content = fs::read_to_string(path)
             .await
-            .map_err(|e| RecordError::Other(format!("Failed to read config file: {}", e)))?;
+            .map_err(|e| RecordError::Other(format!("Failed to read config file: {e}")))?;
 
         let config: Config = toml::from_str(&content)
-            .map_err(|e| RecordError::Other(format!("Failed to parse config TOML: {}", e)))?;
+            .map_err(|e| RecordError::Other(format!("Failed to parse config TOML: {e}")))?;
 
         Ok(config)
     }
