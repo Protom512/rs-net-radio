@@ -7,9 +7,9 @@
 //! - Memory leak detection
 //! - Concurrent streaming operations
 
+use futures_util::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
-use futures_util::io::Cursor;
 use tokio::time::timeout;
 
 use record_lib::streaming::chunk_processor::{ChunkProcessor, CHUNK_SIZE};
@@ -75,7 +75,9 @@ async fn test_memory_limit_at_512mb() {
     monitor.start().expect("Failed to start monitoring");
 
     // Should allow usage up to 512MB
-    monitor.update_usage(512 * 1024 * 1024).expect("Failed to update usage");
+    monitor
+        .update_usage(512 * 1024 * 1024)
+        .expect("Failed to update usage");
     assert_eq!(monitor.current_usage(), 512 * 1024 * 1024);
 
     // Should reject usage that exceeds 512MB
@@ -135,7 +137,11 @@ async fn test_4kb_chunk_processing() {
 
     let result = processor.process_reader(reader).await;
 
-    assert!(result.is_ok(), "Failed to process 4KB chunks: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to process 4KB chunks: {:?}",
+        result.err()
+    );
 
     let stats = result.unwrap();
     assert_eq!(stats.bytes_written, (CHUNK_SIZE * 3) as u64);
@@ -161,7 +167,10 @@ async fn test_chunk_processing_with_partial_last_chunk() {
 
     let result = processor.process_reader(reader).await;
 
-    assert!(result.is_ok(), "Failed to process chunks with partial last chunk");
+    assert!(
+        result.is_ok(),
+        "Failed to process chunks with partial last chunk"
+    );
 
     let stats = result.unwrap();
     assert_eq!(stats.bytes_written, (CHUNK_SIZE * 2 + 1024) as u64);
@@ -239,12 +248,8 @@ async fn test_concurrent_chunk_processing() {
     let reader2 = Cursor::new(test_data2);
 
     // Process concurrently
-    let handle1 = tokio::spawn(async move {
-        processor1.process_reader(reader1).await
-    });
-    let handle2 = tokio::spawn(async move {
-        processor2.process_reader(reader2).await
-    });
+    let handle1 = tokio::spawn(async move { processor1.process_reader(reader1).await });
+    let handle2 = tokio::spawn(async move { processor2.process_reader(reader2).await });
 
     let result1 = handle1.await.expect("Task 1 panicked");
     let result2 = handle2.await.expect("Task 2 panicked");
@@ -415,7 +420,11 @@ async fn test_chunk_size_validation() {
         assert!(result.is_ok(), "Failed with chunk size {}", chunk_size);
 
         let stats = result.unwrap();
-        assert_eq!(stats.chunks_processed, 2, "Chunk count mismatch for size {}", chunk_size);
+        assert_eq!(
+            stats.chunks_processed, 2,
+            "Chunk count mismatch for size {}",
+            chunk_size
+        );
     }
 
     // Cleanup

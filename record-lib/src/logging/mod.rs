@@ -9,12 +9,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 use tracing::{debug, info, warn};
-use tracing_subscriber::{
-    fmt,
-    layer::SubscriberExt,
-    util::SubscriberInitExt,
-    EnvFilter,
-};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 /// Configuration for the logging system.
 #[derive(Clone)]
@@ -59,11 +54,14 @@ pub fn init_logging(config: &LoggingConfig) -> anyhow::Result<()> {
     }
 
     // Check log file size and rotate if necessary
-    check_and_rotate_log(&config.error_log_path, config.max_log_size, config.num_backup_files)?;
+    check_and_rotate_log(
+        &config.error_log_path,
+        config.max_log_size,
+        config.num_backup_files,
+    )?;
 
     // Set up environment filter from RUST_LOG or default to INFO
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     // Set up console layer
     let console_layer = fmt::layer()
@@ -82,11 +80,9 @@ pub fn init_logging(config: &LoggingConfig) -> anyhow::Result<()> {
         .create(true)
         .append(true)
         .open(&error_log_path)
-        .map_err(|e| anyhow::anyhow!(
-            "Failed to open error log file '{}': {}",
-            error_log_path,
-            e
-        ))?;
+        .map_err(|e| {
+            anyhow::anyhow!("Failed to open error log file '{}': {}", error_log_path, e)
+        })?;
 
     let file_layer = fmt::layer()
         .with_writer(move || {
@@ -127,7 +123,11 @@ pub fn init_logging(config: &LoggingConfig) -> anyhow::Result<()> {
 /// # Errors
 ///
 /// Returns an error if file operations fail.
-fn check_and_rotate_log(log_path: &str, max_size: usize, num_backups: usize) -> std::io::Result<()> {
+fn check_and_rotate_log(
+    log_path: &str,
+    max_size: usize,
+    num_backups: usize,
+) -> std::io::Result<()> {
     let path = Path::new(log_path);
 
     if !path.exists() {
@@ -142,7 +142,10 @@ fn check_and_rotate_log(log_path: &str, max_size: usize, num_backups: usize) -> 
         return Ok(());
     }
 
-    warn!("Log file size {} exceeds maximum {}, rotating...", file_size, max_size);
+    warn!(
+        "Log file size {} exceeds maximum {}, rotating...",
+        file_size, max_size
+    );
 
     // Rotate existing backup files
     for i in (1..num_backups).rev() {
@@ -191,16 +194,19 @@ where
 
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
 
-    writeln!(
-        file,
-        "[{timestamp}] ERROR: {context} - {error}"
-    )?;
+    writeln!(file, "[{timestamp}] ERROR: {context} - {error}")?;
 
     // Log error chain
     let mut source = error.source();
     let mut depth = 1;
     while let Some(cause) = source {
-        writeln!(file, "{}  Caused by: {}: {}", "  ".repeat(depth), depth, cause)?;
+        writeln!(
+            file,
+            "{}  Caused by: {}: {}",
+            "  ".repeat(depth),
+            depth,
+            cause
+        )?;
         source = cause.source();
         depth += 1;
     }
@@ -289,13 +295,7 @@ impl<E: std::error::Error> std::error::Error for LocatedError<E> {
 
 impl<E: std::fmt::Display> std::fmt::Display for LocatedError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{} ({}:{})",
-            self.error,
-            self.file,
-            self.line
-        )
+        write!(f, "{} ({}:{})", self.error, self.file, self.line)
     }
 }
 

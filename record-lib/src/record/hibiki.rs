@@ -197,7 +197,9 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     );
     let api_episode_detail: HibikiEpisode = fetch_and_parse(&episode_url)?;
 
-    let episode = if let Some(n) = &api_episode_detail.episode { n } else {
+    let episode = if let Some(n) = &api_episode_detail.episode {
+        n
+    } else {
         let err_msg = format!(
             "Not Downloadable. Failed to get Episode Id for program: {}",
             program.name
@@ -217,7 +219,9 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         return Err(err_msg);
     }
 
-    let video = if let Some(n) = &episode.video { n } else {
+    let video = if let Some(n) = &episode.video {
+        n
+    } else {
         let err_msg = format!(
             "Not Downloadable. Failed to get video information for program: {}",
             program.name
@@ -278,24 +282,26 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         }
     };
 
-    if let Some(ref n) = program.pc_image_url { match reqwest::blocking::get(n) {
-        Ok(mut m) => {
-            if let Err(e) = m.copy_to(&mut img) {
-                let err_msg = format!(
-                    "Failed to download and save image for {}: {}",
-                    program.name, e
-                );
+    if let Some(ref n) = program.pc_image_url {
+        match reqwest::blocking::get(n) {
+            Ok(mut m) => {
+                if let Err(e) = m.copy_to(&mut img) {
+                    let err_msg = format!(
+                        "Failed to download and save image for {}: {}",
+                        program.name, e
+                    );
+                    error!("{err_msg}");
+                    return Err(err_msg);
+                }
+            }
+            Err(e) => {
+                debug!("{program:#?}");
+                let err_msg = format!("Failed to download image for {}: {}", program.name, e);
                 error!("{err_msg}");
                 return Err(err_msg);
             }
         }
-        Err(e) => {
-            debug!("{program:#?}");
-            let err_msg = format!("Failed to download image for {}: {}", program.name, e);
-            error!("{err_msg}");
-            return Err(err_msg);
-        }
-    } } else {
+    } else {
         let err_msg = format!("Image not downloadable for program: {}.", program.name);
         error!("{err_msg}");
         return Err(err_msg);
@@ -385,9 +391,8 @@ pub fn record() {
     };
 
     let page = 1; // Assuming page is fixed at 1 as per original logic
-    let programs_url = format!(
-        "https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={page}"
-    );
+    let programs_url =
+        format!("https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={page}");
 
     info!("Fetching program list from {programs_url}");
     let programs: Vec<HibikiJson> = match fetch_and_parse(&programs_url) {

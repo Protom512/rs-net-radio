@@ -9,9 +9,9 @@ pub mod memory_monitor;
 pub use chunk_processor::{ChunkProcessor, CHUNK_SIZE};
 pub use memory_monitor::{MemoryMonitor, MemoryStats};
 
+use anyhow::{Context, Result};
 use std::path::Path;
 use std::sync::Arc;
-use anyhow::{Context, Result};
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, warn};
 
@@ -63,11 +63,8 @@ pub async fn record_streaming(
     memory_monitor.start()?;
 
     // Create chunk processor
-    let chunk_processor = ChunkProcessor::new(
-        output_path,
-        config.chunk_size,
-        Arc::new(memory_monitor),
-    );
+    let chunk_processor =
+        ChunkProcessor::new(output_path, config.chunk_size, Arc::new(memory_monitor));
 
     // Perform the recording
     let stats = chunk_processor

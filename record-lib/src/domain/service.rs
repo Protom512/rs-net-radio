@@ -43,11 +43,8 @@ pub trait RecordService: Send + Sync {
     /// - File I/O fails.
     /// - Stream format is unsupported.
     /// - External process (`FFmpeg`) fails.
-    async fn record(
-        &self,
-        url: &str,
-        output_path: &Path,
-    ) -> Result<RecordingMetadata, RecordError>;
+    async fn record(&self, url: &str, output_path: &Path)
+        -> Result<RecordingMetadata, RecordError>;
 
     /// Records a batch of programs.
     ///
@@ -61,10 +58,7 @@ pub trait RecordService: Send + Sync {
     /// # Errors
     ///
     /// Returns `RecordError` if any recording fails.
-    async fn record_batch(
-        &self,
-        programs: Vec<Program>,
-    ) -> Result<BatchSummary, RecordError> {
+    async fn record_batch(&self, programs: Vec<Program>) -> Result<BatchSummary, RecordError> {
         let mut successes = 0;
         let mut failures = Vec::new();
 

@@ -151,7 +151,7 @@ impl RecordRadiko {
     /// # Returns
     ///
     /// A vector of `RecordRadiko` tasks.
-    #[must_use] 
+    #[must_use]
     pub fn init(ch: &str) -> Vec<Self> {
         let radiko = Radiko::init(ch);
         let streaming_url = ChStreamingUrl::init(ch);
@@ -209,18 +209,18 @@ impl RecordRadiko {
             .ok_or_else(|| RecordError::Other("Missing X-Radiko-Keylength header".to_string()))?
             .to_str()
             .map_err(|e| RecordError::Other(format!("Invalid X-Radiko-Keylength header: {e}")))?;
-        let key_length: usize = key_length_str.parse().map_err(|e| {
-            RecordError::Other(format!("Failed to parse X-Radiko-Keylength: {e}"))
-        })?;
+        let key_length: usize = key_length_str
+            .parse()
+            .map_err(|e| RecordError::Other(format!("Failed to parse X-Radiko-Keylength: {e}")))?;
 
         let keyoffset_str = header_str
             .get("x-radiko-keyoffset")
             .ok_or_else(|| RecordError::Other("Missing X-Radiko-Keyoffset header".to_string()))?
             .to_str()
             .map_err(|e| RecordError::Other(format!("Invalid X-Radiko-Keyoffset header: {e}")))?;
-        let keyoffset: usize = keyoffset_str.parse().map_err(|e| {
-            RecordError::Other(format!("Failed to parse X-Radiko-Keyoffset: {e}"))
-        })?;
+        let keyoffset: usize = keyoffset_str
+            .parse()
+            .map_err(|e| RecordError::Other(format!("Failed to parse X-Radiko-Keyoffset: {e}")))?;
 
         if keyoffset + key_length > radiko_authkey_value.len() {
             return Err(RecordError::Other(format!(
@@ -326,7 +326,7 @@ impl Radiko<'_> {
     /// # Returns
     ///
     /// A `Radiko` struct containing station and program information.
-    #[must_use] 
+    #[must_use]
     pub fn init(ch: &str) -> Self {
         let m = get_program_dom(ch);
         let radiko: Radiko = match from_str(match &m.text() {
@@ -357,7 +357,7 @@ impl ChStreamingUrl {
     /// # Panics
     ///
     /// Panics if no suitable streaming URL is found.
-    #[must_use] 
+    #[must_use]
     pub fn get_streaming_url(&self) -> String {
         debug!("{:#?}", self.list);
         for i in &self.list[0..1] {
@@ -384,7 +384,7 @@ impl ChStreamingUrl {
     /// # Returns
     ///
     /// A `ChStreamingUrl` struct containing streaming URL information.
-    #[must_use] 
+    #[must_use]
     pub fn init(ch: &str) -> ChStreamingUrl {
         let client = Client::new();
         let url = format!("http://radiko.jp/v2/station/stream_smh_multi/{ch}.xml");
@@ -419,7 +419,7 @@ impl ChStreamingUrl {
 /// # Returns
 ///
 /// A `reqwest::blocking::Response` containing the program DOM.
-#[must_use] 
+#[must_use]
 pub fn get_program_dom(ch: &str) -> Response {
     let client = Client::new();
     let url = format!("http://radiko.jp/v2/api/program/station/weekly?station_id={ch}");

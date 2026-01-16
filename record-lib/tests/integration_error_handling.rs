@@ -11,7 +11,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
-use record_lib::error::{RecordingError, handle_recording_error, ErrorSeverity};
+use record_lib::error::{handle_recording_error, ErrorSeverity, RecordingError};
 
 /// Helper struct to manage test log files
 struct TestLogFile {
@@ -51,7 +51,8 @@ fn test_fatal_error_classification() {
     assert_eq!(error_403.exit_code(), Some(2));
 
     // Test 429 error (fatal)
-    let error_429 = RecordingError::http_status(429, "https://hibiki-radio.jp/test", "Rate limited");
+    let error_429 =
+        RecordingError::http_status(429, "https://hibiki-radio.jp/test", "Rate limited");
     assert_eq!(error_429.severity(), ErrorSeverity::Fatal);
     assert!(error_429.is_fatal());
     assert_eq!(error_429.exit_code(), Some(2));
@@ -78,7 +79,8 @@ fn test_fatal_error_classification() {
 #[test]
 fn test_recoverable_error_classification() {
     // Test 500 error (recoverable)
-    let error_500 = RecordingError::http_status(500, "https://example.com", "Internal Server Error");
+    let error_500 =
+        RecordingError::http_status(500, "https://example.com", "Internal Server Error");
     assert_eq!(error_500.severity(), ErrorSeverity::Recoverable);
     assert!(!error_500.is_fatal());
     assert_eq!(error_500.exit_code(), Some(1));
@@ -86,7 +88,7 @@ fn test_recoverable_error_classification() {
     // Test I/O error (recoverable)
     let io_error = RecordingError::Io(std::io::Error::new(
         std::io::ErrorKind::ConnectionReset,
-        "Connection reset"
+        "Connection reset",
     ));
     assert_eq!(io_error.severity(), ErrorSeverity::Recoverable);
     assert!(!io_error.is_fatal());
@@ -109,14 +111,16 @@ fn test_error_handler_returns_correct_exit_code() {
     assert_eq!(exit_code, Some(3));
 
     // Test recoverable errors return None
-    let recoverable = RecordingError::http_status(500, "https://example.com", "Internal Server Error");
+    let recoverable =
+        RecordingError::http_status(500, "https://example.com", "Internal Server Error");
     let exit_code = handle_recording_error(&recoverable);
     assert_eq!(exit_code, None);
 }
 
 #[test]
 fn test_error_messages_are_descriptive() {
-    let error = RecordingError::http_status(403, "https://hibiki-radio.jp/program", "Access forbidden");
+    let error =
+        RecordingError::http_status(403, "https://hibiki-radio.jp/program", "Access forbidden");
     let error_string = format!("{}", error);
 
     assert!(error_string.contains("403"));
@@ -125,7 +129,7 @@ fn test_error_messages_are_descriptive() {
 
     let html_error = RecordingError::html_parsing(
         "https://example.com/page",
-        "Could not find streaming URL in HTML"
+        "Could not find streaming URL in HTML",
     );
     let html_string = format!("{}", html_error);
 
@@ -150,7 +154,12 @@ fn test_custom_error_creation() {
     // Test helper functions for creating errors
     let http_error = RecordingError::http_status(404, "https://example.com", "Not found");
     match http_error {
-        RecordingError::HttpStatusError { status, url, message, .. } => {
+        RecordingError::HttpStatusError {
+            status,
+            url,
+            message,
+            ..
+        } => {
             assert_eq!(status, 404);
             assert_eq!(url, "https://example.com");
             assert_eq!(message, "Not found");
@@ -215,7 +224,10 @@ fn test_multiple_error_types_integration() {
         RecordingError::http_status(403, "https://hibiki-radio.jp", "Forbidden"),
         RecordingError::html_parsing("https://example.com", "Parse failed"),
         RecordingError::NetworkError("Network unreachable".to_string()),
-        RecordingError::Io(std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "Refused")),
+        RecordingError::Io(std::io::Error::new(
+            std::io::ErrorKind::ConnectionRefused,
+            "Refused",
+        )),
     ];
 
     let fatal_count = errors.iter().filter(|e| e.is_fatal()).count();
@@ -248,16 +260,36 @@ fn test_error_logging_format() {
 fn test_batch_error_scenarios() {
     // Test multiple errors that might occur in batch processing
     let errors = vec![
-        ("Program 1", RecordingError::http_status(500, "https://example.com/prog1", "Internal Server Error")),
-        ("Program 2", RecordingError::NetworkError("Timeout".to_string())),
-        ("Program 3", RecordingError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))),
+        (
+            "Program 1",
+            RecordingError::http_status(500, "https://example.com/prog1", "Internal Server Error"),
+        ),
+        (
+            "Program 2",
+            RecordingError::NetworkError("Timeout".to_string()),
+        ),
+        (
+            "Program 3",
+            RecordingError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "File not found",
+            )),
+        ),
     ];
 
     // All errors should be displayable
     for (program, error) in &errors {
         let error_string = format!("{}", error);
-        assert!(!error_string.is_empty(), "Error for {} should not be empty", program);
-        assert!(error_string.len() > 10, "Error for {} should be descriptive", program);
+        assert!(
+            !error_string.is_empty(),
+            "Error for {} should not be empty",
+            program
+        );
+        assert!(
+            error_string.len() > 10,
+            "Error for {} should be descriptive",
+            program
+        );
     }
 
     // Verify error counts
@@ -273,7 +305,9 @@ fn test_error_in_async_context() {
     // Test that errors can be used in async contexts
     use std::sync::Arc;
 
-    let error = Arc::new(RecordingError::NetworkError("Async network error".to_string()));
+    let error = Arc::new(RecordingError::NetworkError(
+        "Async network error".to_string(),
+    ));
 
     // Should be cloneable and shareable across threads
     let error_clone = Arc::clone(&error);

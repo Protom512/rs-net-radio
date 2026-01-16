@@ -31,7 +31,11 @@ impl BatchRecorder {
     /// * `retry_count` - Number of retry attempts for failed recordings.
     /// * `timeout` - Timeout for each recording.
     #[must_use]
-    pub const fn new(max_parallel_jobs: usize, retry_count: u32, timeout: std::time::Duration) -> Self {
+    pub const fn new(
+        max_parallel_jobs: usize,
+        retry_count: u32,
+        timeout: std::time::Duration,
+    ) -> Self {
         Self {
             max_parallel_jobs,
             retry_count,
@@ -88,7 +92,12 @@ impl BatchRecorder {
             tasks.spawn(async move {
                 let _permit = match permit.acquire().await {
                     Ok(p) => p,
-                    Err(e) => return Err((program.title.clone(), format!("Failed to acquire semaphore: {e}"))),
+                    Err(e) => {
+                        return Err((
+                            program.title.clone(),
+                            format!("Failed to acquire semaphore: {e}"),
+                        ))
+                    }
                 };
 
                 Self::record_with_retries(&service, program, retry_count).await
@@ -330,7 +339,9 @@ mod tests {
             },
         ];
 
-        let summary = recorder.record_batch(programs, service).await
+        let summary = recorder
+            .record_batch(programs, service)
+            .await
             .expect("Failed to record batch");
 
         assert_eq!(summary.total_count, 2);
@@ -377,7 +388,9 @@ mod tests {
             },
         ];
 
-        let summary = recorder.record_batch(programs, service).await
+        let summary = recorder
+            .record_batch(programs, service)
+            .await
             .expect("Failed to record batch");
 
         // Verify result collection
@@ -401,7 +414,7 @@ mod tests {
             ) -> Result<RecordingMetadata, RecordError> {
                 Err(RecordError::Io(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    "Test failure"
+                    "Test failure",
                 )))
             }
         }
@@ -422,7 +435,9 @@ mod tests {
             },
         ];
 
-        let summary = recorder.record_batch(programs, service).await
+        let summary = recorder
+            .record_batch(programs, service)
+            .await
             .expect("Failed to record batch");
 
         // Verify failure details are collected
@@ -444,16 +459,16 @@ mod tests {
         let recorder = BatchRecorder::new(2, 0, std::time::Duration::from_secs(30));
         let service = Arc::new(MockRecordService);
 
-        let programs = vec![
-            Program {
-                title: "Program 1".to_string(),
-                url: "http://example.com/1".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/1.m4a"),
-            },
-        ];
+        let programs = vec![Program {
+            title: "Program 1".to_string(),
+            url: "http://example.com/1".to_string(),
+            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+        }];
 
         let start = std::time::Instant::now();
-        let summary = recorder.record_batch(programs, service).await
+        let summary = recorder
+            .record_batch(programs, service)
+            .await
             .expect("Failed to record batch");
         let elapsed = start.elapsed();
 
@@ -470,15 +485,15 @@ mod tests {
         let recorder = BatchRecorder::new(2, 0, std::time::Duration::from_secs(30));
         let service = Arc::new(MockRecordService);
 
-        let programs = vec![
-            Program {
-                title: "Success Program".to_string(),
-                url: "http://example.com/success".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/success.m4a"),
-            },
-        ];
+        let programs = vec![Program {
+            title: "Success Program".to_string(),
+            url: "http://example.com/success".to_string(),
+            output_path: std::path::PathBuf::from("/tmp/success.m4a"),
+        }];
 
-        let summary = recorder.record_batch(programs, service).await
+        let summary = recorder
+            .record_batch(programs, service)
+            .await
             .expect("Failed to record batch");
 
         // Test that print_summary doesn't panic and produces output
@@ -513,7 +528,7 @@ mod tests {
                 if url.contains("fail") {
                     Err(RecordError::Io(std::io::Error::new(
                         std::io::ErrorKind::PermissionDenied,
-                        "Access denied"
+                        "Access denied",
                     )))
                 } else {
                     Ok(RecordingMetadata::new(
@@ -544,7 +559,9 @@ mod tests {
             },
         ];
 
-        let summary = recorder.record_batch(programs, service).await
+        let summary = recorder
+            .record_batch(programs, service)
+            .await
             .expect("Failed to record batch");
 
         // Verify summary statistics
@@ -592,7 +609,9 @@ mod tests {
             },
         ];
 
-        let summary = recorder.record_batch(programs, service).await
+        let summary = recorder
+            .record_batch(programs, service)
+            .await
             .expect("Failed to record batch");
 
         // Verify total count

@@ -15,7 +15,7 @@ fn create_mock_server(server: &mut ServerGuard, status_code: usize, path: &str) 
         .with_status(status_code)
         .with_header("content-type", "text/html")
         .with_body("<html><body>Test response</body></html>")
-        .create()
+        .create();
 }
 
 /// Helper function to create a mock server that validates headers
@@ -26,15 +26,17 @@ fn create_header_validation_mock(server: &mut ServerGuard, path: &str) -> Mock {
         .match_header("referer", "https://hibiki-radio.jp")
         .with_status(200)
         .with_header("content-type", "text/html")
-        .with_body(r#"
+        .with_body(
+            r#"
             <html>
             <head><title>Test</title></head>
             <body>
             <div data-streaming-url="https://example.com/stream.m3u8"></div>
             </body>
             </html>
-        "#)
-        .create()
+        "#,
+        )
+        .create();
 }
 
 #[test]
@@ -48,7 +50,11 @@ fn test_http_403_error_handling() {
 
     // Verify the error contains the correct information
     match &error {
-        RecordError::HttpError { status_code, url, message } => {
+        RecordError::HttpError {
+            status_code,
+            url,
+            message,
+        } => {
             assert_eq!(*status_code, 403);
             assert_eq!(url, "https://hibiki-radio.jp/test");
             assert!(message.contains("Access forbidden"));
@@ -71,7 +77,11 @@ fn test_http_429_error_handling() {
     };
 
     match &error {
-        RecordError::HttpError { status_code, url, message } => {
+        RecordError::HttpError {
+            status_code,
+            url,
+            message,
+        } => {
             assert_eq!(*status_code, 429);
             assert_eq!(url, "https://hibiki-radio.jp/test");
             assert!(message.contains("Too many requests"));
@@ -108,7 +118,9 @@ fn test_error_creation_functions() {
     // Test the helper functions for creating errors
     let http_error = record_lib::utils::http_error(403, "https://test.com");
     match http_error {
-        RecordError::HttpError { status_code, url, .. } => {
+        RecordError::HttpError {
+            status_code, url, ..
+        } => {
             assert_eq!(status_code, 403);
             assert_eq!(url, "https://test.com");
         }

@@ -7,9 +7,9 @@
 #![allow(clippy::items_after_statements)]
 #![allow(clippy::cast_precision_loss)]
 
+use anyhow::{Context, Result};
 use std::path::Path;
 use std::sync::Arc;
-use anyhow::{Context, Result};
 use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::{debug, error, info, warn};
@@ -41,12 +41,8 @@ impl ChunkProcessor {
     /// * `output_path` - Path where the audio will be saved.
     /// * `chunk_size` - Size of chunks for processing.
     /// * `memory_monitor` - Memory monitor for tracking usage.
-    #[must_use] 
-    pub fn new(
-        output_path: &Path,
-        chunk_size: usize,
-        memory_monitor: Arc<MemoryMonitor>,
-    ) -> Self {
+    #[must_use]
+    pub fn new(output_path: &Path, chunk_size: usize, memory_monitor: Arc<MemoryMonitor>) -> Self {
         Self {
             output_path: output_path.to_path_buf(),
             chunk_size,
@@ -76,7 +72,10 @@ impl ChunkProcessor {
         info!("Starting download from {}", url);
         let response = client
             .get(url)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            )
             .send()
             .await
             .context("Failed to start download")?;
@@ -181,10 +180,7 @@ impl ChunkProcessor {
     /// # Errors
     ///
     /// Returns an error if reading or writing fails or memory limit is exceeded.
-    pub async fn process_reader<R>(
-        &self,
-        mut reader: R,
-    ) -> Result<MemoryStats>
+    pub async fn process_reader<R>(&self, mut reader: R) -> Result<MemoryStats>
     where
         R: futures_util::AsyncReadExt + Unpin + std::marker::Send,
     {
@@ -252,9 +248,7 @@ impl ChunkProcessor {
                 };
                 debug!(
                     "Processed {} chunks ({} bytes, {:.2} MB/s)",
-                    chunk_count,
-                    total_bytes,
-                    throughput
+                    chunk_count, total_bytes, throughput
                 );
                 last_progress_time = now;
             }
@@ -408,7 +402,11 @@ mod tests {
         let output_path = temp_dir.join("test_async_io.mp3");
 
         let memory_monitor = Arc::new(MemoryMonitor::new(512 * 1024 * 1024));
-        let processor = Arc::new(ChunkProcessor::new(&output_path, CHUNK_SIZE, memory_monitor));
+        let processor = Arc::new(ChunkProcessor::new(
+            &output_path,
+            CHUNK_SIZE,
+            memory_monitor,
+        ));
 
         // 大量のデータを作成 (1MB)
         let test_data = vec![0u8; 1024 * 1024];
@@ -417,9 +415,7 @@ mod tests {
         let processor_clone = Arc::clone(&processor);
 
         // 非同期タスクで処理を実行
-        let handle = tokio::spawn(async move {
-            processor_clone.process_reader(reader).await
-        });
+        let handle = tokio::spawn(async move { processor_clone.process_reader(reader).await });
 
         // タスクが完了するまで待機
         let result = handle.await.expect("Task panicked");
@@ -456,8 +452,10 @@ mod tests {
 
         // メモリ使用量がチャンクサイズを大幅に超えていないことを確認
         let final_stats = memory_monitor.get_stats();
-        assert!(final_stats.memory_usage_bytes < CHUNK_SIZE * 3,
-                 "Memory usage should not exceed 3x chunk size");
+        assert!(
+            final_stats.memory_usage_bytes < CHUNK_SIZE * 3,
+            "Memory usage should not exceed 3x chunk size"
+        );
 
         // Clean up
         let _ = std::fs::remove_file(&output_path);
@@ -479,16 +477,16 @@ mod tests {
         // サーバーが起動するのを待機
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        let processor = ChunkProcessor::new(
-            &output_path,
-            CHUNK_SIZE,
-            memory_monitor
-        );
+        let processor = ChunkProcessor::new(&output_path, CHUNK_SIZE, memory_monitor);
 
         let url = format!("http://127.0.0.1:{}/test_stream", port);
         let result = processor.process_stream(&url).await;
 
-        assert!(result.is_ok(), "Failed to process stream: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Failed to process stream: {:?}",
+            result.err()
+        );
 
         let stats = result.expect("Failed to process stream");
         assert_eq!(stats.bytes_written, (CHUNK_SIZE * 2) as u64);
@@ -553,12 +551,12 @@ mod tests {
         let processor1 = ChunkProcessor::new(
             &temp_dir.join("test_parallel1.mp3"),
             CHUNK_SIZE,
-            memory_monitor1
+            memory_monitor1,
         );
         let processor2 = ChunkProcessor::new(
             &temp_dir.join("test_parallel2.mp3"),
             CHUNK_SIZE,
-            memory_monitor2
+            memory_monitor2,
         );
 
         let test_data1 = vec![1u8; CHUNK_SIZE * 2];
@@ -568,12 +566,8 @@ mod tests {
         let reader2 = Cursor::new(test_data2);
 
         // 並列処理を実行
-        let handle1 = tokio::spawn(async move {
-            processor1.process_reader(reader1).await
-        });
-        let handle2 = tokio::spawn(async move {
-            processor2.process_reader(reader2).await
-        });
+        let handle1 = tokio::spawn(async move { processor1.process_reader(reader1).await });
+        let handle2 = tokio::spawn(async move { processor2.process_reader(reader2).await });
 
         let result1 = handle1.await.expect("Task 1 panicked");
         let result2 = handle2.await.expect("Task 2 panicked");
@@ -608,8 +602,11 @@ mod tests {
         let stats = result.expect("Failed to process reader");
 
         // メモリ使用量が512MBを超えていないことを確認
-        assert!(stats.memory_usage_bytes <= 512 * 1024 * 1024,
-                 "Memory usage {} exceeds 512MB limit", stats.memory_usage_bytes);
+        assert!(
+            stats.memory_usage_bytes <= 512 * 1024 * 1024,
+            "Memory usage {} exceeds 512MB limit",
+            stats.memory_usage_bytes
+        );
 
         // Clean up
         let _ = std::fs::remove_file(&output_path);

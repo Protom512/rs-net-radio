@@ -33,9 +33,9 @@ impl CronManager {
     ///
     /// Returns `RecordError` if the scheduler cannot be created.
     pub async fn new(recording_service: Arc<dyn RecordService>) -> Result<Self, RecordError> {
-        let scheduler = JobScheduler::new().await.map_err(|e| {
-            RecordError::Other(format!("Failed to create job scheduler: {e}"))
-        })?;
+        let scheduler = JobScheduler::new()
+            .await
+            .map_err(|e| RecordError::Other(format!("Failed to create job scheduler: {e}")))?;
 
         Ok(Self {
             scheduler: Arc::new(Mutex::new(scheduler)),
@@ -62,10 +62,7 @@ impl CronManager {
             metadata: _,
         } = schedule;
 
-        info!(
-            "Adding scheduled recording: {} at {}",
-            id, cron_expression
-        );
+        info!("Adding scheduled recording: {} at {}", id, cron_expression);
 
         let service = Arc::clone(&self.recording_service);
 

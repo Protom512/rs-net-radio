@@ -100,7 +100,9 @@ impl RecordingError {
             RecordingError::HtmlParsingError { .. }
             | RecordingError::ConfigError(_)
             | RecordingError::MemoryLimitExceeded { .. }
-            | RecordingError::CommandFailed { code: Some(126..), .. } => ErrorSeverity::Fatal,
+            | RecordingError::CommandFailed {
+                code: Some(126..), ..
+            } => ErrorSeverity::Fatal,
             _ => ErrorSeverity::Recoverable,
         }
     }
@@ -109,7 +111,9 @@ impl RecordingError {
     #[must_use]
     pub fn exit_code(&self) -> Option<i32> {
         match self {
-            RecordingError::HttpStatusError { status: 403 | 429, .. } => Some(2),
+            RecordingError::HttpStatusError {
+                status: 403 | 429, ..
+            } => Some(2),
             RecordingError::HtmlParsingError { .. } => Some(3),
             RecordingError::MemoryLimitExceeded { .. } => Some(4),
             RecordingError::ConfigError(_) => Some(5),
@@ -261,7 +265,8 @@ mod tests {
         assert!(http_403.is_fatal());
         assert_eq!(http_403.exit_code(), Some(2));
 
-        let http_500 = RecordingError::http_status(500, "https://example.com", "Internal Server Error");
+        let http_500 =
+            RecordingError::http_status(500, "https://example.com", "Internal Server Error");
         assert_eq!(http_500.severity(), ErrorSeverity::Recoverable);
         assert!(!http_500.is_fatal());
 
@@ -285,7 +290,8 @@ mod tests {
         let exit_code = handle_recording_error(&fatal_error);
         assert_eq!(exit_code, Some(2));
 
-        let recoverable_error = RecordingError::http_status(500, "https://example.com", "Internal Server Error");
+        let recoverable_error =
+            RecordingError::http_status(500, "https://example.com", "Internal Server Error");
         let exit_code = handle_recording_error(&recoverable_error);
         assert_eq!(exit_code, None);
     }

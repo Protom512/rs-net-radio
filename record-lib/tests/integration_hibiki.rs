@@ -8,7 +8,7 @@
 
 use mockito::{Mock, ServerGuard};
 use record_lib::record::hibiki_scraper::HibikiScraper;
-use record_lib::utils::{RecordError, check_http_status, http_error, html_parsing_error};
+use record_lib::utils::{check_http_status, html_parsing_error, http_error, RecordError};
 
 /// Creates a mock server that returns a specific HTTP status code
 fn create_status_mock(server: &mut ServerGuard, status_code: usize, path: &str) -> Mock {
@@ -17,7 +17,7 @@ fn create_status_mock(server: &mut ServerGuard, status_code: usize, path: &str) 
         .with_status(status_code)
         .with_header("content-type", "text/html")
         .with_body("<html><body>Test response</body></html>")
-        .create()
+        .create();
 }
 
 /// Creates a mock server that validates User-Agent and Referer headers
@@ -36,12 +36,13 @@ fn create_header_validation_mock(server: &mut ServerGuard, path: &str) -> Mock {
             </body>
             </html>
         "#)
-        .create()
+        .create();
 }
 
 /// Creates a mock server with valid HTML containing streaming URL
 fn create_html_with_streaming_url(server: &mut ServerGuard, path: &str, url: &str) -> Mock {
-    let html = format!(r#"
+    let html = format!(
+        r#"
         <!DOCTYPE html>
         <html>
         <head><title>Hibiki Radio Test</title></head>
@@ -49,19 +50,21 @@ fn create_html_with_streaming_url(server: &mut ServerGuard, path: &str, url: &st
         <div data-streaming-url="{url}"></div>
         </body>
         </html>
-    "#);
+    "#
+    );
 
     return server
         .mock("GET", path)
         .with_status(200)
         .with_header("content-type", "text/html")
         .with_body(&html)
-        .create()
+        .create();
 }
 
 /// Creates a mock server with HTML containing script tag with streaming URL
 fn create_html_with_script_url(server: &mut ServerGuard, path: &str, url: &str) -> Mock {
-    let html = format!(r#"
+    let html = format!(
+        r#"
         <!DOCTYPE html>
         <html>
         <head><title>Hibiki Radio Test</title></head>
@@ -72,19 +75,21 @@ fn create_html_with_script_url(server: &mut ServerGuard, path: &str, url: &str) 
         </script>
         </body>
         </html>
-    "#);
+    "#
+    );
 
     return server
         .mock("GET", path)
         .with_status(200)
         .with_header("content-type", "text/html")
         .with_body(&html)
-        .create()
+        .create();
 }
 
 /// Creates a mock server with iframe containing streaming URL
 fn create_html_with_iframe(server: &mut ServerGuard, path: &str, url: &str) -> Mock {
-    let html = format!(r#"
+    let html = format!(
+        r#"
         <!DOCTYPE html>
         <html>
         <head><title>Hibiki Radio Test</title></head>
@@ -92,14 +97,15 @@ fn create_html_with_iframe(server: &mut ServerGuard, path: &str, url: &str) -> M
         <iframe src="{url}"></iframe>
         </body>
         </html>
-    "#);
+    "#
+    );
 
     return server
         .mock("GET", path)
         .with_status(200)
         .with_header("content-type", "text/html")
         .with_body(&html)
-        .create()
+        .create();
 }
 
 #[test]
@@ -109,7 +115,7 @@ fn test_hibiki_scraper_with_valid_html() {
     let _mock = create_html_with_streaming_url(
         &mut server,
         "/test-program",
-        "https://stream.example.com/program.m3u8"
+        "https://stream.example.com/program.m3u8",
     );
 
     let scraper = HibikiScraper::new().expect("Failed to create scraper");
@@ -117,7 +123,11 @@ fn test_hibiki_scraper_with_valid_html() {
 
     let result = scraper.extract_streaming_url(&url);
 
-    assert!(result.is_ok(), "Failed to extract streaming URL: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to extract streaming URL: {:?}",
+        result.err()
+    );
     let streaming_url = result.unwrap();
     assert_eq!(streaming_url, "https://stream.example.com/program.m3u8");
 }
@@ -129,7 +139,7 @@ fn test_hibiki_scraper_with_script_tag() {
     let _mock = create_html_with_script_url(
         &mut server,
         "/test-script",
-        "https://stream.example.com/script-stream.m3u8"
+        "https://stream.example.com/script-stream.m3u8",
     );
 
     let scraper = HibikiScraper::new().expect("Failed to create scraper");
@@ -137,9 +147,16 @@ fn test_hibiki_scraper_with_script_tag() {
 
     let result = scraper.extract_streaming_url(&url);
 
-    assert!(result.is_ok(), "Failed to extract streaming URL from script: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to extract streaming URL from script: {:?}",
+        result.err()
+    );
     let streaming_url = result.unwrap();
-    assert_eq!(streaming_url, "https://stream.example.com/script-stream.m3u8");
+    assert_eq!(
+        streaming_url,
+        "https://stream.example.com/script-stream.m3u8"
+    );
 }
 
 #[test]
@@ -149,7 +166,7 @@ fn test_hibiki_scraper_with_iframe() {
     let _mock = create_html_with_iframe(
         &mut server,
         "/test-iframe",
-        "https://stream.example.com/iframe-stream.m3u8"
+        "https://stream.example.com/iframe-stream.m3u8",
     );
 
     let scraper = HibikiScraper::new().expect("Failed to create scraper");
@@ -157,9 +174,16 @@ fn test_hibiki_scraper_with_iframe() {
 
     let result = scraper.extract_streaming_url(&url);
 
-    assert!(result.is_ok(), "Failed to extract streaming URL from iframe: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to extract streaming URL from iframe: {:?}",
+        result.err()
+    );
     let streaming_url = result.unwrap();
-    assert_eq!(streaming_url, "https://stream.example.com/iframe-stream.m3u8");
+    assert_eq!(
+        streaming_url,
+        "https://stream.example.com/iframe-stream.m3u8"
+    );
 }
 
 #[test]
@@ -170,14 +194,16 @@ fn test_hibiki_scraper_with_html_missing_url() {
         .mock("GET", "/no-url")
         .with_status(200)
         .with_header("content-type", "text/html")
-        .with_body("
+        .with_body(
+            "
             <html>
             <head><title>Test</title></head>
             <body>
             <p>No streaming URL here</p>
             </body>
             </html>
-        ")
+        ",
+        )
         .create();
 
     let scraper = HibikiScraper::new().expect("Failed to create scraper");
@@ -185,7 +211,10 @@ fn test_hibiki_scraper_with_html_missing_url() {
 
     let result = scraper.extract_streaming_url(&url);
 
-    assert!(result.is_err(), "Should fail when HTML doesn't contain streaming URL");
+    assert!(
+        result.is_err(),
+        "Should fail when HTML doesn't contain streaming URL"
+    );
     match result {
         Err(RecordError::HtmlParsingError { url: _, message }) => {
             assert!(message.contains("Could not extract streaming URL"));
@@ -207,7 +236,11 @@ fn test_http_status_check_with_403() {
     // We can't actually test that in unit tests, but we can verify the error would be created
     let error = http_error(403, &url);
     match error {
-        RecordError::HttpError { status_code, url: error_url, .. } => {
+        RecordError::HttpError {
+            status_code,
+            url: error_url,
+            ..
+        } => {
             assert_eq!(status_code, 403);
             assert_eq!(error_url, url);
         }
@@ -228,7 +261,11 @@ fn test_http_status_check_with_429() {
     // We can't actually test that in unit tests, but we can verify the error would be created
     let error = http_error(429, &url);
     match error {
-        RecordError::HttpError { status_code, url: error_url, .. } => {
+        RecordError::HttpError {
+            status_code,
+            url: error_url,
+            ..
+        } => {
             assert_eq!(status_code, 429);
             assert_eq!(error_url, url);
         }
@@ -281,7 +318,10 @@ fn test_user_agent_header_validation() {
     let mut server = mockito::Server::new();
     let _mock = server
         .mock("GET", "/validate-headers")
-        .match_header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .match_header(
+            "user-agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        )
         .match_header("referer", "https://hibiki-radio.jp")
         .with_status(200)
         .with_body("OK")
@@ -292,7 +332,10 @@ fn test_user_agent_header_validation() {
 
     let response = client
         .get(&url)
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .header(
+            "User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        )
         .header("Referer", "https://hibiki-radio.jp")
         .send()
         .expect("Failed to send request");
@@ -310,7 +353,11 @@ fn test_hibiki_scraper_headers_are_sent() {
 
     // This should succeed because the mock validates headers
     let result = scraper.extract_streaming_url(&url);
-    assert!(result.is_ok(), "Scraper should send correct headers: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Scraper should send correct headers: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -318,13 +365,25 @@ fn test_hibiki_scraper_headers_are_sent() {
 fn test_hibiki_scraper_various_html_structures() {
     let test_cases = vec![
         // Data attribute
-        (r#"<div data-streaming-url="https://test1.com/stream.m3u8"></div>"#, "https://test1.com/stream.m3u8"),
+        (
+            r#"<div data-streaming-url="https://test1.com/stream.m3u8"></div>"#,
+            "https://test1.com/stream.m3u8",
+        ),
         // Script tag with variable
-        (r#"<script>var url = "https://test2.com/stream.m3u8";</script>"#, "https://test2.com/stream.m3u8"),
+        (
+            r#"<script>var url = "https://test2.com/stream.m3u8";</script>"#,
+            "https://test2.com/stream.m3u8",
+        ),
         // Iframe src
-        (r#"<iframe src="https://test3.com/stream.m3u8"></iframe>"#, "https://test3.com/stream.m3u8"),
+        (
+            r#"<iframe src="https://test3.com/stream.m3u8"></iframe>"#,
+            "https://test3.com/stream.m3u8",
+        ),
         // JSON in script
-        (r#"<script>{"streamingUrl": "https://test4.com/stream.m3u8"}</script>"#, "https://test4.com/stream.m3u8"),
+        (
+            r#"<script>{"streamingUrl": "https://test4.com/stream.m3u8"}</script>"#,
+            "https://test4.com/stream.m3u8",
+        ),
     ];
 
     for (html_snippet, expected_url) in test_cases {
@@ -413,14 +472,16 @@ fn test_hibiki_scraper_url_validation() {
     ];
 
     for (i, (url, _desc)) in valid_urls.iter().enumerate() {
-        let html = format!(r#"
+        let html = format!(
+            r#"
             <!DOCTYPE html>
             <html>
             <body>
             <div data-streaming-url="{url}"></div>
             </body>
             </html>
-        "#);
+        "#
+        );
 
         let path = format!("/validate-{}", i);
         let _mock = server
@@ -480,7 +541,10 @@ fn test_hibiki_scraper_with_network_error() {
             // Expected
         }
         _ => {
-            panic!("Expected Reqwest error for network failure, got: {:?}", result);
+            panic!(
+                "Expected Reqwest error for network failure, got: {:?}",
+                result
+            );
         }
     }
 }

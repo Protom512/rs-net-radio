@@ -5,9 +5,9 @@
 
 #![allow(clippy::missing_panics_doc)]
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, AtomicU32, Ordering};
 use anyhow::Result;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::Arc;
 use tracing::{debug, warn};
 
 use tokio::time::{interval, Duration};
@@ -83,7 +83,10 @@ impl MemoryMonitor {
         match self.start_time.lock() {
             Ok(mut guard) => *guard = Some(std::time::Instant::now()),
             Err(e) => {
-                return Err(anyhow::anyhow!("Failed to acquire lock for start_time: {}", e));
+                return Err(anyhow::anyhow!(
+                    "Failed to acquire lock for start_time: {}",
+                    e
+                ));
             }
         }
 
@@ -126,7 +129,9 @@ impl MemoryMonitor {
         #[allow(clippy::cast_possible_truncation)]
         let current = self.current_usage.load(Ordering::Relaxed) as usize;
 
-        let mut prev_usage = self.previous_usage.lock()
+        let mut prev_usage = self
+            .previous_usage
+            .lock()
             .map_err(|e| format!("Failed to acquire lock for leak detection: {}", e))?;
 
         let snapshot_num = self.snapshot_count.fetch_add(1, Ordering::Relaxed);
@@ -208,7 +213,8 @@ impl MemoryMonitor {
     ///
     /// Returns an error if the update would exceed the memory limit.
     pub fn update_usage(&self, bytes: usize) -> Result<()> {
-        self.current_usage.fetch_add(bytes as u64, Ordering::Relaxed);
+        self.current_usage
+            .fetch_add(bytes as u64, Ordering::Relaxed);
         self.total_bytes.fetch_add(bytes as u64, Ordering::Relaxed);
         self.chunk_count.fetch_add(1, Ordering::Relaxed);
 
@@ -243,7 +249,7 @@ impl MemoryMonitor {
                 } else {
                     std::time::Duration::from_secs(0)
                 }
-            },
+            }
             Err(_) => {
                 debug!("Failed to acquire lock for start_time, using zero duration");
                 std::time::Duration::from_secs(0)
@@ -278,7 +284,8 @@ impl MemoryMonitor {
             return 0.0;
         }
         #[allow(clippy::cast_precision_loss)]
-        let percentage = (self.current_usage.load(Ordering::Relaxed) as f64 / self.memory_limit as f64) * 100.0;
+        let percentage =
+            (self.current_usage.load(Ordering::Relaxed) as f64 / self.memory_limit as f64) * 100.0;
         percentage
     }
 
@@ -459,7 +466,9 @@ mod tests {
 
         // Verify cleanup was performed
         assert_eq!(monitor.current_usage(), 0);
-        assert!(!monitor.monitoring_active.load(std::sync::atomic::Ordering::Relaxed));
+        assert!(!monitor
+            .monitoring_active
+            .load(std::sync::atomic::Ordering::Relaxed));
     }
 
     #[test]
@@ -525,6 +534,8 @@ mod tests {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         // Verify monitoring is stopped
-        assert!(!monitor.monitoring_active.load(std::sync::atomic::Ordering::Relaxed));
+        assert!(!monitor
+            .monitoring_active
+            .load(std::sync::atomic::Ordering::Relaxed));
     }
 }

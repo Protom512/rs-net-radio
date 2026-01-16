@@ -9,14 +9,14 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::{timeout, sleep};
+use tokio::time::{sleep, timeout};
 
-use record_lib::batch::recorder::BatchRecorder;
-use record_lib::domain::service::{Program, RecordService};
-use record_lib::domain::metadata::RecordingMetadata;
-use record_lib::utils::RecordError;
 use async_trait::async_trait;
 use chrono::Utc;
+use record_lib::batch::recorder::BatchRecorder;
+use record_lib::domain::metadata::RecordingMetadata;
+use record_lib::domain::service::{Program, RecordService};
+use record_lib::utils::RecordError;
 
 /// Mock recording service that simulates successful recordings
 struct MockRecordService {
@@ -125,12 +125,17 @@ async fn test_batch_recorder_parallel_execution() {
     ];
 
     let start = std::time::Instant::now();
-    let summary = recorder.record_batch(programs, service).await
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
         .expect("Failed to record batch");
     let elapsed = start.elapsed();
 
     // With 3 parallel tasks and 100ms delay each, should complete in ~100-200ms (not 300ms)
-    assert!(elapsed.as_millis() < 250, "Parallel execution should be faster than sequential");
+    assert!(
+        elapsed.as_millis() < 250,
+        "Parallel execution should be faster than sequential"
+    );
     assert_eq!(summary.total_count, 3);
     assert_eq!(summary.success_count, 3);
     assert_eq!(summary.failure_count, 0);
@@ -167,14 +172,22 @@ async fn test_batch_recorder_concurrency_limit() {
     ];
 
     let start = std::time::Instant::now();
-    let summary = recorder.record_batch(programs, service).await
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
         .expect("Failed to record batch");
     let elapsed = start.elapsed();
 
     // With 4 tasks and max 2 parallel, with 200ms delay each:
     // Should complete in ~400ms (2 batches of 2 tasks)
-    assert!(elapsed.as_millis() >= 300, "Should respect concurrency limit");
-    assert!(elapsed.as_millis() < 600, "Should complete within reasonable time");
+    assert!(
+        elapsed.as_millis() >= 300,
+        "Should respect concurrency limit"
+    );
+    assert!(
+        elapsed.as_millis() < 600,
+        "Should complete within reasonable time"
+    );
     assert_eq!(summary.total_count, 4);
     assert_eq!(summary.success_count, 4);
 }
@@ -212,7 +225,9 @@ async fn test_batch_recorder_with_failures() {
         },
     ];
 
-    let summary = recorder.record_batch(programs, service).await
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
         .expect("Failed to record batch");
 
     assert_eq!(summary.total_count, 4);
@@ -234,7 +249,9 @@ async fn test_batch_recorder_empty_batch() {
     });
 
     let programs: Vec<Program> = vec![];
-    let summary = recorder.record_batch(programs, service).await
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
         .expect("Failed to record empty batch");
 
     assert_eq!(summary.total_count, 0);
@@ -267,7 +284,9 @@ async fn test_batch_recorder_summary_statistics() {
         },
     ];
 
-    let summary = recorder.record_batch(programs, service).await
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
         .expect("Failed to record batch");
 
     // Verify summary statistics
@@ -308,7 +327,9 @@ async fn test_batch_recorder_retry_logic() {
         },
     ];
 
-    let summary = recorder.record_batch(programs, service).await
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
         .expect("Failed to record batch");
 
     // With 2 retries, the failing program should be attempted 3 times total
@@ -325,20 +346,25 @@ async fn test_batch_recorder_timeout() {
         delay: Duration::from_secs(1), // Will exceed timeout
     });
 
-    let programs = vec![
-        Program {
-            title: "Slow Program".to_string(),
-            url: "http://example.com/1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
-        },
-    ];
+    let programs = vec![Program {
+        title: "Slow Program".to_string(),
+        url: "http://example.com/1".to_string(),
+        output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+    }];
 
     // This should take more than the timeout, but the test should still complete
     let start = std::time::Instant::now();
-    let result = timeout(Duration::from_secs(5), recorder.record_batch(programs, service)).await;
+    let result = timeout(
+        Duration::from_secs(5),
+        recorder.record_batch(programs, service),
+    )
+    .await;
     let elapsed = start.elapsed();
 
-    assert!(result.is_ok(), "Batch recording should complete within test timeout");
+    assert!(
+        result.is_ok(),
+        "Batch recording should complete within test timeout"
+    );
     let summary = result.unwrap().expect("Failed to record batch");
     assert_eq!(summary.total_count, 1);
     assert_eq!(summary.success_count, 1);
@@ -361,12 +387,17 @@ async fn test_batch_recorder_large_batch() {
         .collect();
 
     let start = std::time::Instant::now();
-    let summary = recorder.record_batch(programs, service).await
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
         .expect("Failed to record large batch");
     let elapsed = start.elapsed();
 
     // With 5 parallel and 20 tasks, should complete in ~200ms (4 batches of 5)
-    assert!(elapsed.as_millis() < 500, "Large batch should complete efficiently");
+    assert!(
+        elapsed.as_millis() < 500,
+        "Large batch should complete efficiently"
+    );
     assert_eq!(summary.total_count, 20);
     assert_eq!(summary.success_count, 20);
     assert_eq!(summary.failure_count, 0);
@@ -401,7 +432,9 @@ async fn test_batch_recorder_all_failures() {
         },
     ];
 
-    let summary = recorder.record_batch(programs, service).await
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
         .expect("Failed to record batch");
 
     assert_eq!(summary.total_count, 3);
@@ -443,7 +476,9 @@ async fn test_batch_recorder_partial_success() {
         },
     ];
 
-    let summary = recorder.record_batch(programs, service).await
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
         .expect("Failed to record batch");
 
     assert_eq!(summary.total_count, 3);
@@ -492,15 +527,11 @@ async fn test_batch_recorder_concurrent_batches() {
     // Run two batches concurrently
     let recorder1 = Arc::clone(&recorder);
     let service1 = Arc::clone(&service);
-    let handle1 = tokio::spawn(async move {
-        recorder1.record_batch(programs1, service1).await
-    });
+    let handle1 = tokio::spawn(async move { recorder1.record_batch(programs1, service1).await });
 
     let recorder2 = Arc::clone(&recorder);
     let service2 = Arc::clone(&service);
-    let handle2 = tokio::spawn(async move {
-        recorder2.record_batch(programs2, service2).await
-    });
+    let handle2 = tokio::spawn(async move { recorder2.record_batch(programs2, service2).await });
 
     let result1 = handle1.await.expect("Batch 1 panicked");
     let result2 = handle2.await.expect("Batch 2 panicked");

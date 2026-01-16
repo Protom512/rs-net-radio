@@ -32,10 +32,7 @@ pub enum RecordError {
         message: String,
     },
     /// HTML parsing error
-    HtmlParsingError {
-        url: String,
-        message: String,
-    },
+    HtmlParsingError { url: String, message: String },
 }
 
 // Manual Clone implementation since reqwest::Error and serde_json::Error don't implement Clone
@@ -43,17 +40,27 @@ impl Clone for RecordError {
     fn clone(&self) -> Self {
         match self {
             RecordError::Io(e) => RecordError::Other(format!("IO error: {e}")),
-            RecordError::EnvVar(e) => RecordError::Other(format!("Environment variable error: {e}")),
+            RecordError::EnvVar(e) => {
+                RecordError::Other(format!("Environment variable error: {e}"))
+            }
             RecordError::Reqwest(e) => RecordError::Other(format!("Reqwest error: {e}")),
             RecordError::SerdeJson(e) => RecordError::Other(format!("Serde JSON error: {e}")),
-            RecordError::CommandFailed { command, exit_code, stderr } => RecordError::CommandFailed {
+            RecordError::CommandFailed {
+                command,
+                exit_code,
+                stderr,
+            } => RecordError::CommandFailed {
                 command: command.clone(),
                 exit_code: *exit_code,
                 stderr: stderr.clone(),
             },
             RecordError::TempDir => RecordError::TempDir,
             RecordError::Other(s) => RecordError::Other(s.clone()),
-            RecordError::HttpError { status_code, url, message } => RecordError::HttpError {
+            RecordError::HttpError {
+                status_code,
+                url,
+                message,
+            } => RecordError::HttpError {
                 status_code: *status_code,
                 url: url.clone(),
                 message: message.clone(),
@@ -87,17 +94,10 @@ impl fmt::Display for RecordError {
                 status_code,
                 url,
                 message,
-            } => write!(
-                f,
-                "HTTP error {status_code} for {url}: {message}"
-            ),
-            RecordError::HtmlParsingError {
-                url,
-                message,
-            } => write!(
-                f,
-                "HTML parsing error for {url}: {message}"
-            ),
+            } => write!(f, "HTTP error {status_code} for {url}: {message}"),
+            RecordError::HtmlParsingError { url, message } => {
+                write!(f, "HTML parsing error for {url}: {message}")
+            }
         }
     }
 }
@@ -147,13 +147,13 @@ pub fn ensure_archive_path(service_name: &str) -> Result<String, RecordError> {
 }
 
 /// Sanitizes a filename by replacing characters forbidden by common filesystems.
-#[must_use] 
+#[must_use]
 pub fn sanitize_filename(filename: &str) -> String {
     sanitize_filename_crate::sanitize(filename)
 }
 
 /// Creates an HTTP error from status code and URL.
-#[must_use] 
+#[must_use]
 pub fn http_error(status_code: u16, url: &str) -> RecordError {
     let message = match status_code {
         403 => "Access forbidden - may need authentication or different headers",
@@ -176,7 +176,10 @@ pub fn http_error(status_code: u16, url: &str) -> RecordError {
 ///
 /// Returns `RecordError` if the response status indicates an error (4xx or 5xx).
 /// Note: For status codes 403 and 429, this function will exit the process with code 2.
-pub fn check_http_status(response: &reqwest::blocking::Response, url: &str) -> Result<(), RecordError> {
+pub fn check_http_status(
+    response: &reqwest::blocking::Response,
+    url: &str,
+) -> Result<(), RecordError> {
     let status = response.status();
 
     if status.is_client_error() || status.is_server_error() {
@@ -199,7 +202,7 @@ pub fn check_http_status(response: &reqwest::blocking::Response, url: &str) -> R
 }
 
 /// Creates an HTML parsing error.
-#[must_use] 
+#[must_use]
 pub fn html_parsing_error(url: &str, message: &str) -> RecordError {
     RecordError::HtmlParsingError {
         url: url.to_string(),
@@ -208,7 +211,7 @@ pub fn html_parsing_error(url: &str, message: &str) -> RecordError {
 }
 
 /// Checks for HTML parsing errors and handles site structure changes.
-#[must_use] 
+#[must_use]
 pub fn handle_html_parsing_error(url: &str, error: &str) -> RecordError {
     log::error!("HTML parsing failed for URL: {url}");
     log::error!("Error: {error}");
