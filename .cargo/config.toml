@@ -132,7 +132,7 @@ ci = "clippy --all-targets --all-features --workspace -- -D warnings"
 
 # 依存関係更新
 up = "update"
-
+f = "fix --all-targets --all-features --workspace --allow-dirty"
 
 # ============================================================================
 # レジストリ設定（プライベートレジストリ使用時）

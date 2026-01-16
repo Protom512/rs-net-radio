@@ -70,7 +70,7 @@ pub struct HibikiJson {
 /// A `reqwest::Result` containing the API response.
 pub fn get_api(url: &str) -> Result<Response, RecordError> {
     let client = reqwest::blocking::Client::new();
-    client
+    let response = client
         .get(url)
         .header(ORIGIN, "https://hibiki-radio.jp")
         .header(
@@ -79,7 +79,12 @@ pub fn get_api(url: &str) -> Result<Response, RecordError> {
         )
         .header("X-Requested-With", "XMLHttpRequest")
         .send()
-        .map_err(RecordError::Reqwest)
+        .map_err(RecordError::Reqwest)?;
+
+    // Check for HTTP errors, especially 403 and 429
+    crate::utils::check_http_status(&response, url)?;
+
+    Ok(response)
 }
 
 impl HibikiVideo {
@@ -380,7 +385,13 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
 /// and downloads them using ffmpeg.
 pub fn record() {
     // Get the base archive path from environment variable. This is critical.
-    let archive_base_path = ensure_archive_path("hibiki").expect("Failed to get archive base path");
+    let archive_base_path = match ensure_archive_path("hibiki") {
+        Ok(path) => path,
+        Err(e) => {
+            error!("Failed to get archive base path: {}", e);
+            std::process::exit(5);
+        }
+    };
 
     let page = 1; // Assuming page is fixed at 1 as per original logic
     let programs_url = format!(
@@ -393,7 +404,7 @@ pub fn record() {
         Ok(p) => p,
         Err(e) => {
             error!("Failed to fetch or parse program list: {}", e);
-            panic!("Failed to fetch or parse program list: {}", e);
+            std::process::exit(1);
         }
     };
 

@@ -1,5 +1,7 @@
 /// Module for handling hibiki-radio.jp radio recordings.
 pub mod hibiki;
+/// Module for hibiki-radio.jp HTML scraping and URL extraction.
+pub mod hibiki_scraper;
 /// Module for handling onsen.ag radio recordings.
 pub mod onsen;
 /// Module for handling radiko.jp radio recordings.

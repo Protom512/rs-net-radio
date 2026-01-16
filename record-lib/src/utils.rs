@@ -25,6 +25,17 @@ pub enum RecordError {
     TempDir,
     /// A catch-all for other types of errors.
     Other(String),
+    /// HTTP error with status code and URL
+    HttpError {
+        status_code: u16,
+        url: String,
+        message: String,
+    },
+    /// HTML parsing error
+    HtmlParsingError {
+        url: String,
+        message: String,
+    },
 }
 
 impl fmt::Display for RecordError {
@@ -45,6 +56,23 @@ impl fmt::Display for RecordError {
             ),
             RecordError::TempDir => write!(f, "Failed to get temporary directory path"),
             RecordError::Other(s) => write!(f, "Other error: {}", s),
+            RecordError::HttpError {
+                status_code,
+                url,
+                message,
+            } => write!(
+                f,
+                "HTTP error {} for {}: {}",
+                status_code, url, message
+            ),
+            RecordError::HtmlParsingError {
+                url,
+                message,
+            } => write!(
+                f,
+                "HTML parsing error for {}: {}",
+                url, message
+            ),
         }
     }
 }
@@ -92,4 +120,62 @@ pub fn ensure_archive_path(service_name: &str) -> Result<String, RecordError> {
 /// Sanitizes a filename by replacing characters forbidden by common filesystems.
 pub fn sanitize_filename(filename: &str) -> String {
     sanitize_filename_crate::sanitize(filename)
+}
+
+/// Creates an HTTP error from status code and URL.
+pub fn http_error(status_code: u16, url: &str) -> RecordError {
+    let message = match status_code {
+        403 => "Access forbidden - may need authentication or different headers",
+        429 => "Too many requests - rate limit exceeded",
+        404 => "Not found",
+        500..=599 => "Server error",
+        _ => "HTTP request failed",
+    };
+
+    RecordError::HttpError {
+        status_code,
+        url: url.to_string(),
+        message: message.to_string(),
+    }
+}
+
+/// Checks HTTP response status and returns appropriate error if needed.
+pub fn check_http_status(response: &reqwest::blocking::Response, url: &str) -> Result<(), RecordError> {
+    let status = response.status();
+
+    if status.is_client_error() || status.is_server_error() {
+        let status_code = status.as_u16();
+
+        // Handle specific error codes with custom exit behavior
+        match status_code {
+            403 | 429 => {
+                log::error!("HTTP {} error for {}. Access denied or rate limited.", status_code, url);
+                log::error!("This application will exit with code 2. Please try again later or check your access permissions.");
+                std::process::exit(2);
+            }
+            _ => {
+                return Err(http_error(status_code, url));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Creates an HTML parsing error.
+pub fn html_parsing_error(url: &str, message: &str) -> RecordError {
+    RecordError::HtmlParsingError {
+        url: url.to_string(),
+        message: message.to_string(),
+    }
+}
+
+/// Checks for HTML parsing errors and handles site structure changes.
+pub fn handle_html_parsing_error(url: &str, error: &str) -> RecordError {
+    log::error!("HTML parsing failed for URL: {}", url);
+    log::error!("Error: {}", error);
+    log::error!("This may indicate a change in the website structure. The application will exit with code 3.");
+    log::error!("Please report this issue so the scraper can be updated.");
+
+    std::process::exit(3);
 }

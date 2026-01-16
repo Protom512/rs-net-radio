@@ -1,229 +1,258 @@
-use chrono::Timelike;
-use chrono::{offset::TimeZone, DateTime, Datelike, Duration, Local, Utc};
-use env_logger::Builder;
-use log::{debug, error, info};
-use std::error::Error; //use log::LevelFilter;
-use std::io::Write;
-extern crate record_lib;
-use record_lib::record::onsen::OnsenProgram;
+//! Main entry point for the rs-net-radio application.
+//!
+//! This is a refactored version that uses the new architecture with
+//! BatchRecorder and CronManager for better separation of concerns.
 
-use record_lib::record::hibiki::record;
-use record_lib::record::radiko::RecordRadiko;
-use tokio_cron_scheduler::{Job, JobScheduler};
+use anyhow::{Context, Result};
+use clap::{Parser, Subcommand};
+use record_lib::batch::BatchRecorder;
+use record_lib::config::repository::ConfigRepository;
+use record_lib::config::FileConfigRepository;
+use record_lib::domain::service::Program;
+use record_lib::scheduler::CronManager;
+use record_lib::utils::RecordError;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+use tracing::{error, info};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
-fn job_radiko(init_schedule: &str, ch: &'static str) -> Result<Job, Box<dyn Error>> {
-    info!("running job_radiko");
-    debug!("{}", &init_schedule);
-    let current_time = Local::now();
-    Job::new(init_schedule, move |_uuid, _l| {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async move {
-            let record_sched = JobScheduler::new().await.unwrap(); // Removed mut
-            let arr = RecordRadiko::init(ch);
-
-            for radiko in arr {
-                if current_time.timestamp() < radiko.ft.timestamp() {
-                    let schedule = format!(
-                        "{} {} {} {} {} * {}",
-                        radiko.ft.with_timezone(&Utc).second(),
-                        radiko.ft.with_timezone(&Utc).minute(),
-                        radiko.ft.with_timezone(&Utc).hour(),
-                        radiko.ft.with_timezone(&Utc).day(),
-                        radiko.ft.with_timezone(&Utc).month(),
-                        radiko.ft.with_timezone(&Utc).year()
-                    );
-                    let radiko_clone = radiko.clone(); // Clone for the closure
-                    let job = Job::new(schedule.as_str(), move |_uuid2, _l2| {
-                        // Used .as_str()
-                        info!("Executing Radiko record for: {}", radiko_clone.title);
-                        match radiko_clone.download() {
-                            Ok(status) => {
-                                if status.success() {
-                                    info!(
-                                        "Radiko Record successful for {}: {}",
-                                        radiko_clone.title, status
-                                    );
-                                } else {
-                                    error!(
-                                        "Radiko Record command failed for {}: {}",
-                                        radiko_clone.title, status
-                                    );
-                                }
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Radiko Record execution error for {}: {}",
-                                    radiko_clone.title, e
-                                );
-                            }
-                        }
-                    })
-                    .unwrap();
-                    record_sched.add(job).await.unwrap(); // Added .await and unwrap
-                }
-            }
-            let _res = record_sched.start().await;
-        });
-    })
-    .map_err(Box::from)
-}
-fn job_onsen(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
-    info!("running job_onsen");
-    debug!("{}", &init_schedule);
-    Job::new(init_schedule, move |_uuid, _l| {
-        let json: Vec<OnsenProgram> = OnsenProgram::init();
-        for onsen_program in &json {
-            info!("Executing Onsen record for: {}", onsen_program.title);
-            match onsen_program.record() {
-                Ok(()) => {
-                    info!("Onsen Record successful for {}", onsen_program.title);
-                }
-                Err(e) => {
-                    error!(
-                        "Onsen Record execution error for {}: {}",
-                        onsen_program.title, e
-                    );
-                }
-            }
-        }
-    })
-    .map_err(Box::from) // Added error mapping
+/// Command-line arguments for the application.
+#[derive(Parser, Debug)]
+#[command(name = "rs-net-radio")]
+#[command(about = "Internet radio recording application for Japanese services", long_about = None)]
+struct Args {
+    #[command(subcommand)]
+    command: Commands,
 }
 
-fn job_hibiki(init_schedule: &str) -> Result<Job, Box<dyn Error>> {
-    info!("running job_hibiki");
-    debug!("{}", &init_schedule);
-    Job::new(init_schedule, move |_uuid, _l| {
-        info!("Executing Hibiki record job");
-        record();
-    })
-    .map_err(Box::from) // Added error mapping
+/// Available commands.
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Run batch recording from a list of programs
+    Batch {
+        /// Path to the program list file
+        #[arg(short, long)]
+        input: PathBuf,
+    },
+    /// Start cron-based scheduled recording
+    Cron {
+        /// Path to the cron configuration file
+        #[arg(short, long, default_value = "cron.toml")]
+        config: PathBuf,
+    },
+}
+
+/// Mock recording service for demonstration.
+/// In production, this would be replaced with actual Hibiki/Onsen/Radiko services.
+struct MockRecordService;
+
+#[async_trait::async_trait]
+impl record_lib::domain::service::RecordService for MockRecordService {
+    async fn record(
+        &self,
+        url: &str,
+        output_path: &std::path::Path,
+    ) -> Result<record_lib::domain::metadata::RecordingMetadata, RecordError> {
+        info!("Recording from {} to {}", url, output_path.display());
+
+        // Simulate recording
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        Ok(record_lib::domain::metadata::RecordingMetadata::new(
+            "Mock Program".to_string(),
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+            output_path.display().to_string(),
+            1024 * 1024,
+            128,
+        ))
+    }
 }
 
 #[tokio::main]
-async fn main() {
-    let mut builder = Builder::new();
-    builder.format(|buf, record| {
-        // Returns the default style for the given log level.
-        // This style includes color and formatting attributes that will be used to display log messages.
-        // The style is determined by the log level (e.g., Error, Warn, Info, Debug, Trace).
-        let _style = buf.default_level_style(record.level());
-        writeln!(
-            buf,
-            "[{}] [{}:{}] {}",
-            record.level(),
-            record
-                .file()
-                .unwrap_or("____unknown")
-                .get(4..)
-                .unwrap_or("unknown"),
-            record.line().unwrap_or(0),
-            record.args()
-        )
-    });
-    builder.filter(None, log::LevelFilter::Info);
-    builder.write_style(env_logger::WriteStyle::Auto);
-    builder.init();
-    let sched = JobScheduler::new().await.unwrap(); // Removed mut
-    let current_time = Local::now();
+async fn main() -> Result<()> {
+    // Initialize tracing
+    init_tracing();
 
-    let init_schedule_str = "00 00 20 * * * *";
+    let args = Args::parse();
 
-    let init_today = Local::now();
-    let init_string = format!(
-        "{}/{}/{} 04:00:00",
-        init_today.year(),
-        init_today.month(),
-        init_today.day()
+    match args.command {
+        Commands::Batch { input } => {
+            run_batch_recording(input).await?;
+        }
+        Commands::Cron { config } => {
+            run_cron_scheduling(config).await?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Initializes the tracing subscriber for structured logging.
+fn init_tracing() {
+    tracing_subscriber::registry()
+        .with(EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into()))
+        .with(fmt::layer())
+        .init();
+}
+
+/// Runs batch recording from a program list file.
+///
+/// # Arguments
+///
+/// * `input_path` - Path to the program list file.
+///
+/// # Errors
+///
+/// Returns an error if batch recording fails.
+async fn run_batch_recording(input_path: PathBuf) -> Result<()> {
+    info!("Starting batch recording from: {}", input_path.display());
+
+    // Load configuration
+    let config_repo = FileConfigRepository;
+    let config = config_repo
+        .load()
+        .await
+        .context("Failed to load configuration")?;
+
+    // Parse program list
+    let programs = parse_program_list(&input_path).context("Failed to parse program list")?;
+
+    // Create batch recorder
+    let recorder = BatchRecorder::new(
+        config.batch.max_parallel_jobs,
+        config.batch.retry_count,
+        Duration::from_secs(config.batch.timeout_seconds),
     );
 
-    let init_dt: DateTime<Local> = Local
-        .datetime_from_str(&init_string, "%Y/%m/%d %H:%M:%S")
-        .expect("Failed to parse datetime");
+    // Create recording service
+    let service = Arc::new(MockRecordService);
 
-    if current_time.timestamp() > init_dt.timestamp() {
-        let current_shot = current_time + Duration::seconds(3);
-        let _schedule = format!(
-            "{} {} {} {} {} * {}",
-            current_shot.with_timezone(&Utc).second(),
-            current_shot.with_timezone(&Utc).minute(),
-            current_shot.with_timezone(&Utc).hour(),
-            current_shot.with_timezone(&Utc).day(),
-            current_shot.with_timezone(&Utc).month(),
-            current_shot.with_timezone(&Utc).year()
-        );
+    // Execute batch recording
+    let summary = recorder
+        .record_batch(programs, service)
+        .await
+        .context("Batch recording failed")?;
+
+    // Print summary
+    summary.print_summary();
+
+    Ok(())
+}
+
+/// Runs cron-based scheduled recording.
+///
+/// # Arguments
+///
+/// * `config_path` - Path to the cron configuration file.
+///
+/// # Errors
+///
+/// Returns an error if cron scheduling fails.
+async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
+    info!("Starting cron scheduling with config: {}", config_path.display());
+
+    // Load cron configuration
+    let cron_config = load_cron_config(&config_path).context("Failed to load cron configuration")?;
+
+    // Create cron manager
+    let service = Arc::new(MockRecordService);
+    let cron_manager = CronManager::new(service)
+        .await
+        .context("Failed to create cron manager")?;
+
+    // Add schedules
+    for schedule in cron_config.schedules {
+        cron_manager
+            .add_schedule(schedule)
+            .await
+            .context("Failed to add schedule")?;
     }
 
-    if current_time.timestamp() > init_dt.timestamp() {
-        let current_shot = current_time + Duration::seconds(3);
-        let schedule = format!(
-            "{} {} {} {} {} * {}",
-            current_shot.with_timezone(&Utc).second(),
-            current_shot.with_timezone(&Utc).minute(),
-            current_shot.with_timezone(&Utc).hour(),
-            current_shot.with_timezone(&Utc).day(),
-            current_shot.with_timezone(&Utc).month(),
-            current_shot.with_timezone(&Utc).year()
-        );
+    // Start scheduler
+    cron_manager
+        .start()
+        .await
+        .context("Failed to start cron manager")?;
 
-        let job = job_onsen(schedule.as_str()).expect("Failed to create Job");
-        sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-    }
+    info!("Cron scheduler started, waiting for scheduled tasks...");
 
-    let job = job_onsen(init_schedule_str).expect("Failed to create Job");
-    sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-                                                              //radiko
+    // Wait forever (or until Ctrl+C)
+    tokio::signal::ctrl_c()
+        .await
+        .context("Failed to listen for Ctrl+C")?;
 
-    if current_time.timestamp() > init_dt.timestamp() {
-        let current_shot = current_time + Duration::seconds(3);
-        let schedule = format!(
-            "{} {} {} {} {} * {}",
-            current_shot.with_timezone(&Utc).second(),
-            current_shot.with_timezone(&Utc).minute(),
-            current_shot.with_timezone(&Utc).hour(),
-            current_shot.with_timezone(&Utc).day(),
-            current_shot.with_timezone(&Utc).month(),
-            current_shot.with_timezone(&Utc).year()
-        );
+    info!("Shutting down...");
 
-        let job = job_radiko(schedule.as_str(), "QRR").expect("Failed to create Job");
-        sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-        let job = job_radiko(schedule.as_str(), "LFR").expect("Failed to create Job");
-        sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-    }
+    // Shutdown scheduler
+    cron_manager
+        .shutdown()
+        .await
+        .context("Failed to shutdown cron manager")?;
 
-    let job = job_radiko(init_schedule_str, "QRR").expect("Failed to create Job");
-    sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-    let job = job_radiko(init_schedule_str, "LFR").expect("Failed to create Job");
-    sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
+    Ok(())
+}
 
-    //10時でおんせｎと重ならないように
+/// Parses a program list file.
+///
+/// # Arguments
+///
+/// * `path` - Path to the program list file.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read or parsed.
+fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read program list: {}", path.display()))?;
 
-    let init_hibiki_schedule_str = "00 00 01 * * * *";
+    let mut programs = Vec::new();
 
-    if current_time.timestamp() > init_dt.timestamp() {
-        let current_shot = current_time + Duration::seconds(3);
-        let schedule = format!(
-            "{} {} {} {} {} * {}",
-            current_shot.with_timezone(&Utc).second(),
-            current_shot.with_timezone(&Utc).minute(),
-            current_shot.with_timezone(&Utc).hour(),
-            current_shot.with_timezone(&Utc).day(),
-            current_shot.with_timezone(&Utc).month(),
-            current_shot.with_timezone(&Utc).year()
-        );
+    for (line_num, line) in content.lines().enumerate() {
+        let line = line.trim();
 
-        let job = job_hibiki(schedule.as_str()).expect("Failed to create Job");
-        sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-    }
-
-    let job = job_hibiki(init_hibiki_schedule_str).expect("Failed to create Job");
-    sched.add(job).await.expect("Failed to Add job to cron"); // Added .await
-
-    match sched.start().await {
-        Ok(m) => m,
-        Err(e) => {
-            error!("{}", e);
+        // Skip empty lines and comments
+        if line.is_empty() || line.starts_with('#') {
+            continue;
         }
-    };
+
+        // Parse format: "title|url|output_path"
+        let parts: Vec<&str> = line.split('|').collect();
+        if parts.len() != 3 {
+            error!("Invalid format on line {}: {}", line_num + 1, line);
+            continue;
+        }
+
+        let title = parts[0].to_string();
+        let url = parts[1].to_string();
+        let output_path = PathBuf::from(parts[2]);
+
+        programs.push(Program {
+            title,
+            url,
+            output_path,
+        });
+    }
+
+    Ok(programs)
+}
+
+/// Loads cron configuration from a TOML file.
+///
+/// # Arguments
+///
+/// * `path` - Path to the cron configuration file.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read or parsed.
+fn load_cron_config(path: &PathBuf) -> Result<record_lib::config::CronConfig> {
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read cron config: {}", path.display()))?;
+
+    let config: record_lib::config::CronConfig = toml::from_str(&content)
+        .with_context(|| format!("Failed to parse cron config: {}", path.display()))?;
+
+    Ok(config)
 }
