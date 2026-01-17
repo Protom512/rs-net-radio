@@ -54,7 +54,7 @@ jobs:
 
       - run: |
           zip --junk-paths rs-net-radio-${{ matrix.target }} target/${{ matrix.target }}/release/rs-net-radio{,.exe}
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v6
         with:
           name: build-${{ matrix.target }}
           path: rs-net-radio-${{ matrix.target }}.zip
