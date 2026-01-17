@@ -25,6 +25,9 @@ use serde_xml_rs::from_str;
 use std::borrow::Cow;
 use std::env::temp_dir;
 
+#[cfg(unix)]
+use std::os::unix::process::ExitStatusExt;
+
 #[cfg(windows)]
 use std::os::windows::process::ExitStatusExt;
 use std::process::ExitStatus;
