@@ -3,9 +3,21 @@ updates:
   - package-ecosystem: cargo
     directory: /
     schedule:
-      interval: daily
-      time: "01:01" # UTC
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "protom512"
+    labels:
+      - "dependencies"
+      - "rust"
+
+  # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly" # monthly, weekly or daily
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "github-actions"
+      - "dependencies"
