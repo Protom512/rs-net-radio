@@ -27,6 +27,8 @@ use std::env::temp_dir;
 
 #[cfg(windows)]
 use std::os::windows::process::ExitStatusExt;
+#[cfg(unix)]
+use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
 
 /// Represents the overall Radiko data structure.
