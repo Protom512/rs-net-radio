@@ -18,7 +18,7 @@ use record_lib::streaming::memory_monitor::MemoryMonitor;
 /// Helper function to create a temporary test file path
 fn temp_test_path(name: &str) -> std::path::PathBuf {
     let mut path = std::env::temp_dir();
-    path.push(format!("test_streaming_{}.mp3", name));
+    path.push(format!("test_streaming_{name}.mp3"));
     path
 }
 
@@ -422,8 +422,7 @@ async fn test_chunk_size_validation() {
         let stats = result.unwrap();
         assert_eq!(
             stats.chunks_processed, 2,
-            "Chunk count mismatch for size {}",
-            chunk_size
+            "Chunk count mismatch for size {chunk_size}",
         );
     }
 

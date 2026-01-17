@@ -1,14 +1,21 @@
 // use core::panicking::panic;
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::manual_let_else)]
+#![expect(
+    clippy::missing_errors_doc,
+    reason = "async functions have complex error cases documented at module level"
+)]
+#![expect(
+    clippy::manual_let_else,
+    reason = "manual let-else pattern improves code readability in this context"
+)]
 
 use crate::utils::sanitize_filename;
 use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
+use crate::{FfmpegCommand, FfmpegInput, FfmpegOutput};
 use log; // 0.4.14
 use log::{debug, error, info, warn};
 use reqwest; // 0.11.4
 use reqwest::blocking::Response;
-use reqwest::header::{ORIGIN, USER_AGENT};
+use reqwest::header::USER_AGENT;
 use serde::Deserialize;
 use serde_json;
 use std::env::temp_dir;
@@ -17,12 +24,9 @@ extern crate m3u8_rs;
 extern crate tempdir;
 use fs_extra;
 
-use std::fs; // Removed
 use std::path::Path;
 
 use fs_extra::file::CopyOptions;
-// use nom::InputIter;
-use std::process::Command;
 
 #[derive(Deserialize, Debug)]
 struct HibikiPlaylistInfo {
@@ -73,14 +77,20 @@ pub struct HibikiJson {
 /// A `reqwest::Result` containing the API response.
 pub fn get_api(url: &str) -> Result<Response, RecordError> {
     let client = reqwest::blocking::Client::new();
+
+    // Use modern User-Agent matching current Chrome browser
+    let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                     (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+
     let response = client
         .get(url)
-        .header(ORIGIN, "https://hibiki-radio.jp")
-        .header(
-            USER_AGENT,
-            "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0",
-        )
+        .header("Origin", "https://hibiki-radio.jp")
+        .header("Referer", "https://hibiki-radio.jp/")
+        .header(USER_AGENT, user_agent)
         .header("X-Requested-With", "XMLHttpRequest")
+        .header("sec-ch-ua", r#""Not(A:Brand";v="8", "Chromium";v="144""#)
+        .header("sec-ch-ua-mobile", "?0")
+        .header("sec-ch-ua-platform", r#""Windows""#)
         .send()
         .map_err(RecordError::Reqwest)?;
 
@@ -188,7 +198,10 @@ fn generate_episode_filename(program_name: &str, episode_name_opt: Option<&str>)
     sanitize_filename(&raw_filename)
 }
 
-#[allow(clippy::too_many_lines)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "complex recording logic requires sequential processing; refactoring would reduce clarity"
+)]
 fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), String> {
     debug!("{program:?}");
     let episode_url = format!(
@@ -236,21 +249,8 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         return Err(err_msg);
     }
 
-    // Construct archive path using the provided archive_base_path
-    let archive_path = format!("{archive_base_path}/hibiki");
-    debug!("Archive path: {:#?}", &archive_path);
-    if !Path::new(&archive_path).is_dir() {
-        match fs::create_dir_all(&archive_path) {
-            Ok(()) => debug!("Created directory: {archive_path}"),
-            Err(e) => {
-                let err_msg = format!("Failed to create archive directory {archive_path}: {e}");
-                error!("{err_msg}");
-                // This might be a panic-worthy situation depending on requirements,
-                // but for now, returning Err as per function's contract.
-                return Err(err_msg);
-            }
-        }
-    }
+    // archive_base_path already includes "/hibiki" from ensure_archive_path()
+    debug!("Archive path: {:#?}", &archive_base_path);
 
     if program.latest_episode_id.is_none() {
         let err_msg = format!(
@@ -283,13 +283,22 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     };
 
     if let Some(ref n) = program.pc_image_url {
-        match reqwest::blocking::get(n) {
-            Ok(mut m) => {
-                if let Err(e) = m.copy_to(&mut img) {
+        let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                         (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+        let client = reqwest::blocking::Client::new();
+        match client.get(n).header("User-Agent", user_agent).send() {
+            Ok(mut response) => {
+                if !response.status().is_success() {
                     let err_msg = format!(
-                        "Failed to download and save image for {}: {}",
-                        program.name, e
+                        "Failed to download image for {}: HTTP {}",
+                        program.name,
+                        response.status()
                     );
+                    error!("{err_msg}");
+                    return Err(err_msg);
+                }
+                if let Err(e) = response.copy_to(&mut img) {
+                    let err_msg = format!("Failed to save image for {}: {}", program.name, e);
                     error!("{err_msg}");
                     return Err(err_msg);
                 }
@@ -309,7 +318,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
 
     // create file_name
     let filename = generate_episode_filename(&program.name, program.latest_episode_name.as_deref());
-    let output_path = format!("{}/{}", archive_path, &filename);
+    let output_path = format!("{}/{}", archive_base_path, &filename);
     let working_path = format!("{}/{}", tmpdir, &filename);
 
     debug!("name:{}\n\tid:{:?}\n", program.name, video.live_flg);
@@ -328,52 +337,41 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         return Ok(()); // Not an error, successfully skipped.
     }
 
-    let ffmpeg_output = Command::new("ffmpeg")
-        .arg("-loglevel")
-        .arg("warning")
-        .arg("-i")
-        .arg(&imagefile)
-        .arg("-i")
-        .arg(&url)
-        .arg("-vcodec")
-        .arg("copy")
-        .arg("-acodec")
-        .arg("copy")
-        .arg("-bsf:a")
-        .arg("aac_adtstoasc")
-        .arg(&working_path)
-        .output();
+    // Prepare HTTP headers for ffmpeg to authenticate requests
+    let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                     (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
 
-    match ffmpeg_output {
-        Ok(output) => {
-            if output.status.success() {
-                let options = CopyOptions::new();
-                match fs_extra::file::move_file(&working_path, &output_path, &options) {
-                    Ok(_) => {
-                        info!("Successfully archived {output_path}");
-                        Ok(())
-                    }
-                    Err(e) => {
-                        let err_msg = format!(
-                            "Failed to move file from {working_path} to {output_path}: {e}"
-                        );
-                        error!("{err_msg}");
-                        Err(err_msg)
-                    }
-                }
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let err_msg = format!("ffmpeg command failed for {}: {}", program.name, stderr);
-                error!("{err_msg}");
-                Err(err_msg)
-            }
-        }
-        Err(e) => {
-            let err_msg = format!("Failed to execute ffmpeg for {}: {}", program.name, e);
+    let thumbnail_input = FfmpegInput::file(&imagefile);
+    let stream_input = FfmpegInput::http(&url)
+        .header(format!("User-Agent: {user_agent}\r\n"))
+        .header("Referer: https://hibiki-radio.jp/\r\n")
+        .header("Origin: https://hibiki-radio.jp\r\n")
+        .user_agent(user_agent);
+
+    FfmpegCommand::new()
+        .log_level("warning")
+        .inputs(vec![thumbnail_input, stream_input])
+        .video_codec("copy")
+        .audio_codec("copy")
+        .bitstream_filter("aac_adtstoasc")
+        .output(&working_path)
+        .run()
+        .and_then(FfmpegOutput::into_result)
+        .map_err(|e| {
+            let err_msg = format!("ffmpeg command failed for {}: {}", program.name, e);
             error!("{err_msg}");
-            Err(err_msg)
-        }
-    }
+            err_msg
+        })?;
+
+    let options = CopyOptions::new();
+    fs_extra::file::move_file(&working_path, &output_path, &options).map_err(|e| {
+        let err_msg = format!("Failed to move file from {working_path} to {output_path}: {e}");
+        error!("{err_msg}");
+        err_msg
+    })?;
+
+    info!("Successfully archived {output_path}");
+    Ok(())
 }
 
 /// Records Hibiki radio programs.
@@ -414,5 +412,356 @@ pub fn record() {
             Err(e) => error!("Failed to process program {}: {}", program.name, e),
         }
     }
+    info!("Finished processing all programs.");
+}
+
+/// 非同期で単一プログラムを処理
+async fn process_program_async(
+    program: &HibikiJson,
+    archive_base_path: &str,
+) -> Result<(), String> {
+    debug!("{program:?}");
+    let episode_url = format!(
+        "https://vcms-api.hibiki-radio.jp/api/v1/programs/{}",
+        program.access_id
+    );
+
+    let api_response = fetch_episode_async(&episode_url).await?;
+    let episode = validate_episode(&api_response, program)?;
+
+    let video = validate_video(episode, program)?;
+    let tmpdir = std::env::temp_dir()
+        .to_str()
+        .ok_or_else(|| "Cannot find tmpdir".to_string())?
+        .to_string();
+    info!("working path: {tmpdir}");
+
+    download_thumbnail_async(program, &tmpdir).await?;
+
+    let filename = generate_episode_filename(&program.name, program.latest_episode_name.as_deref());
+    let output_path = format!("{archive_base_path}/{filename}");
+    let working_path = format!("{tmpdir}/{filename}");
+
+    let path = Path::new(&output_path);
+    if path.exists() {
+        warn!("{output_path} already exists, skipping");
+        return Ok(());
+    }
+
+    let url = get_streaming_url_async(video).await?;
+    debug!("title: {},url\"{}\"", program.name, url);
+
+    record_program_async(
+        &url,
+        &tmpdir,
+        &sanitize_filename(&program.name),
+        &working_path,
+    )
+    .await?;
+    move_to_final_path(&working_path, &output_path)?;
+
+    info!("Successfully archived {output_path}");
+    Ok(())
+}
+
+/// Fetches episode details asynchronously.
+async fn fetch_episode_async(episode_url: &str) -> Result<HibikiEpisode, String> {
+    let api_response = reqwest::Client::new()
+        .get(episode_url)
+        .header("Origin", "https://hibiki-radio.jp")
+        .header("Referer", "https://hibiki-radio.jp/")
+        .header(
+            "User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        )
+        .header("X-Requested-With", "XMLHttpRequest")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch episode: {e}"))?;
+
+    let episode_text = api_response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {e}"))?;
+    serde_json::from_str(&episode_text).map_err(|e| format!("Failed to parse episode JSON: {e}"))
+}
+
+/// Validates episode information.
+fn validate_episode<'a>(
+    api_episode_detail: &'a HibikiEpisode,
+    program: &HibikiJson,
+) -> Result<&'a HibikiEpisodeId, String> {
+    let episode = if let Some(n) = &api_episode_detail.episode {
+        n
+    } else {
+        let err_msg = format!(
+            "Not Downloadable. Failed to get Episode Id for program: {}",
+            program.name
+        );
+        error!("{err_msg}");
+        return Err(err_msg);
+    };
+
+    if program.latest_episode_id.unwrap_or(0) != episode.id {
+        let err_msg = format!(
+            "Not Downloadable. Outdated Episode, title={name} expected_id={expected_id} actual_id={actual_id}",
+            name = program.latest_episode_name.as_deref().unwrap_or("UNKNOWN_NAME"),
+            expected_id = program.latest_episode_id.unwrap_or(0),
+            actual_id = episode.id
+        );
+        error!("{err_msg}");
+        return Err(err_msg);
+    }
+
+    Ok(episode)
+}
+
+/// Validates video information.
+fn validate_video<'a>(
+    episode: &'a HibikiEpisodeId,
+    program: &HibikiJson,
+) -> Result<&'a HibikiVideo, String> {
+    let video = if let Some(n) = &episode.video {
+        n
+    } else {
+        let err_msg = format!(
+            "Not Downloadable. Failed to get video information for program: {}",
+            program.name
+        );
+        error!("{err_msg}");
+        return Err(err_msg);
+    };
+
+    if video.live_flg {
+        let err_msg = format!("{} Not Downloadable. Program is live.", program.name);
+        error!("{err_msg}");
+        return Err(err_msg);
+    }
+
+    Ok(video)
+}
+
+/// Downloads thumbnail image asynchronously.
+async fn download_thumbnail_async(program: &HibikiJson, tmpdir: &str) -> Result<(), String> {
+    let imagefile = format!("{tmpdir}/{}_thumb.jpg", sanitize_filename(&program.name));
+    let mut img = std::fs::File::create(&imagefile)
+        .map_err(|e| format!("Failed to create image file {imagefile}: {e}"))?;
+
+    if let Some(ref n) = program.pc_image_url {
+        let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                         (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+        let client = reqwest::Client::new();
+        let mut response = client
+            .get(n)
+            .header("User-Agent", user_agent)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to download image for {}: {e}", program.name))?;
+
+        if !response.status().is_success() {
+            let err_msg = format!(
+                "Failed to download image for {}: HTTP {}",
+                program.name,
+                response.status()
+            );
+            error!("{err_msg}");
+            return Err(err_msg);
+        }
+
+        while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+            std::io::Write::write_all(&mut img, &chunk)
+                .map_err(|e| format!("Failed to write image: {e}"))?;
+        }
+    } else {
+        let err_msg = format!("Image not downloadable for program: {}.", program.name);
+        error!("{err_msg}");
+        return Err(err_msg);
+    }
+
+    Ok(())
+}
+
+/// Gets streaming URL asynchronously.
+async fn get_streaming_url_async(video: &HibikiVideo) -> Result<String, String> {
+    let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                     (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+
+    let playlist_url = format!(
+        "https://vcms-api.hibiki-radio.jp/api/v1/videos/play_check?video_id={video_id}",
+        video_id = video.id
+    );
+    let playlist_response = reqwest::Client::new()
+        .get(&playlist_url)
+        .header("Origin", "https://hibiki-radio.jp")
+        .header("Referer", "https://hibiki-radio.jp/")
+        .header("User-Agent", user_agent)
+        .header("X-Requested-With", "XMLHttpRequest")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get playlist: {e}"))?;
+
+    let playlist_text = playlist_response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read playlist: {e}"))?;
+    let playlist_info: HibikiPlaylistInfo = serde_json::from_str(&playlist_text)
+        .map_err(|e| format!("Failed to parse playlist JSON: {e}"))?;
+
+    Ok(match playlist_info.token {
+        Some(n) => format!("{}&token={}", playlist_info.playlist_url, n),
+        None => playlist_info.playlist_url,
+    })
+}
+
+/// Records program asynchronously using ffmpeg.
+async fn record_program_async(
+    url: &str,
+    tmpdir: &str,
+    program_name_sanitized: &str,
+    working_path: &str,
+) -> Result<(), String> {
+    let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                     (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+
+    let imagefile = format!("{tmpdir}/{program_name_sanitized}_thumb.jpg");
+
+    let thumbnail_input = crate::FfmpegInput::file(&imagefile);
+    let stream_input = crate::FfmpegInput::http(url)
+        .header(format!("User-Agent: {user_agent}\r\n"))
+        .header("Referer: https://hibiki-radio.jp/\r\n")
+        .header("Origin: https://hibiki-radio.jp\r\n")
+        .user_agent(user_agent);
+
+    crate::FfmpegCommand::new()
+        .log_level("warning")
+        .inputs(vec![thumbnail_input, stream_input])
+        .video_codec("copy")
+        .audio_codec("copy")
+        .bitstream_filter("aac_adtstoasc")
+        .output(working_path)
+        .run_async()
+        .await
+        .and_then(FfmpegOutput::into_result)
+        .map_err(|e| {
+            let err_msg = format!("ffmpeg command failed: {e}");
+            error!("{err_msg}");
+            err_msg
+        })?;
+
+    Ok(())
+}
+
+/// Moves recording to final path.
+fn move_to_final_path(working_path: &str, output_path: &str) -> Result<(), String> {
+    let options = fs_extra::file::CopyOptions::new();
+    fs_extra::file::move_file(working_path, output_path, &options).map_err(|e| {
+        let err_msg = format!("Failed to move file from {working_path} to {output_path}: {e}");
+        error!("{err_msg}");
+        err_msg
+    })?;
+    Ok(())
+}
+
+/// Hibiki radio programsを並列で録画する非同期関数
+///
+/// # 使用例
+/// ```no_run
+/// use record_lib::record::hibiki;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     hibiki::record_parallel().await;
+/// }
+/// ```
+///
+/// # Panics
+///
+/// Panics if semaphore permit acquisition fails (unwraps internally).
+pub async fn record_parallel() {
+    let archive_base_path = match ensure_archive_path("hibiki") {
+        Ok(path) => path,
+        Err(e) => {
+            error!("Failed to get archive base path: {e}");
+            std::process::exit(5);
+        }
+    };
+
+    let page = 1;
+    let programs_url =
+        format!("https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={page}");
+
+    info!("Fetching program list from {programs_url}");
+
+    // 非同期でプログラムリストを取得
+    let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                     (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+    let response = reqwest::Client::new()
+        .get(&programs_url)
+        .header("Origin", "https://hibiki-radio.jp")
+        .header("Referer", "https://hibiki-radio.jp/")
+        .header("User-Agent", user_agent)
+        .header("X-Requested-With", "XMLHttpRequest")
+        .send()
+        .await;
+
+    let programs: Vec<HibikiJson> = match response {
+        Ok(resp) => {
+            if !resp.status().is_success() {
+                error!("Failed to fetch program list: HTTP {}", resp.status());
+                std::process::exit(1);
+            }
+            let text = match resp.text().await {
+                Ok(t) => t,
+                Err(e) => {
+                    error!("Failed to read response: {e}");
+                    std::process::exit(1);
+                }
+            };
+            match serde_json::from_str::<Vec<HibikiJson>>(&text) {
+                Ok(p) => p,
+                Err(e) => {
+                    error!("Failed to parse program list JSON: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to fetch program list: {e}");
+            std::process::exit(1);
+        }
+    };
+
+    info!(
+        "Fetched {} programs. Starting parallel processing...",
+        programs.len()
+    );
+
+    // 並列処理の最大数を制限（同時接続数を抑えるため）
+    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(3));
+    let mut tasks = Vec::new();
+
+    for program in programs {
+        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let archive_path = archive_base_path.clone();
+
+        let task = tokio::spawn(async move {
+            let _permit = permit; // タスク完了時に permit を解放
+            info!("Processing program: {}", program.name);
+            match process_program_async(&program, &archive_path).await {
+                Ok(()) => {
+                    info!("Successfully processed program: {}", program.name);
+                }
+                Err(e) => error!("Failed to process program {}: {}", program.name, e),
+            }
+        });
+
+        tasks.push(task);
+    }
+
+    // すべてのタスクの完了を待つ
+    for task in tasks {
+        let _ = task.await;
+    }
+
     info!("Finished processing all programs.");
 }

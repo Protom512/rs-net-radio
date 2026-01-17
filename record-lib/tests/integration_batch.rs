@@ -27,7 +27,7 @@ struct MockRecordService {
 impl RecordService for MockRecordService {
     async fn record(
         &self,
-        url: &str,
+        _url: &str,
         output_path: &std::path::Path,
     ) -> Result<RecordingMetadata, RecordError> {
         // Simulate recording delay
@@ -359,7 +359,7 @@ async fn test_batch_recorder_timeout() {
         recorder.record_batch(programs, service),
     )
     .await;
-    let elapsed = start.elapsed();
+    let _elapsed = start.elapsed();
 
     assert!(
         result.is_ok(),
@@ -380,9 +380,9 @@ async fn test_batch_recorder_large_batch() {
     // Create 20 programs
     let programs: Vec<Program> = (0..20)
         .map(|i| Program {
-            title: format!("Program {}", i),
-            url: format!("http://example.com/{}", i),
-            output_path: std::path::PathBuf::from(format!("/tmp/{}.m4a", i)),
+            title: format!("Program {i}"),
+            url: format!("http://example.com/{i}"),
+            output_path: std::path::PathBuf::from(format!("/tmp/{i}.m4a")),
         })
         .collect();
 

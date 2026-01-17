@@ -1,10 +1,19 @@
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::used_underscore_binding)]
-#![allow(clippy::used_underscore_items)]
+#![expect(
+    clippy::missing_errors_doc,
+    reason = "error cases are documented at module level"
+)]
+#![expect(
+    clippy::missing_panics_doc,
+    reason = "panics only occur in unrecoverable error conditions"
+)]
+#![expect(
+    clippy::used_underscore_binding,
+    reason = "underscore bindings are intentional to indicate intentionally unused values"
+)]
 
 use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
-                                                                         // Assuming this is a custom module for base64 encoding
+use crate::{FfmpegCommand, FfmpegInput};
+// Assuming this is a custom module for base64 encoding
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone};
 use log::{debug, error, info};
@@ -15,7 +24,10 @@ use fs_extra::file::CopyOptions;
 use serde_xml_rs::from_str;
 use std::borrow::Cow;
 use std::env::temp_dir;
-use std::process::{Command, ExitStatus};
+
+#[cfg(windows)]
+use std::os::windows::process::ExitStatusExt;
+use std::process::ExitStatus;
 
 /// Represents the overall Radiko data structure.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -45,7 +57,10 @@ pub struct Station<'a> {
     /// Holds the program schedule for the station.
     pub scd: Scd<'a>,
 }
-#[allow(clippy::upper_case_acronyms)]
+#[expect(
+    clippy::upper_case_acronyms,
+    reason = "acronyms follow external API naming convention"
+)]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 enum ID {
     QRR,
@@ -250,33 +265,27 @@ impl RecordRadiko {
         let output_path = format!("{}/{}", archive_path, &filename);
         let working_path = format!("{}/{}", tmpdir, &filename);
 
-        let output = Command::new("ffmpeg")
-            .arg("-loglevel")
-            .arg("debug")
-            .arg("-fflags")
-            .arg("+discardcorrupt")
-            .arg("-headers")
-            .arg(format!("X-Radiko-Authtoken: {authtoken}"))
-            .arg("-y")
-            .arg("-i")
-            .arg(&self.url)
-            .arg("-acodec")
-            .arg("copy")
-            .arg("-vn")
-            .arg("-bsf:a")
-            .arg("aac_adtstoasc")
-            .arg("-t")
-            .arg(self.dur.to_string())
-            .arg(&working_path)
-            .output()?;
+        let stream_input =
+            FfmpegInput::http(&self.url).header(format!("X-Radiko-Authtoken: {authtoken}\r\n"));
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            error!("ffmpeg failed for {}: {}", self.title, stderr);
+        let output = FfmpegCommand::new()
+            .log_level("debug")
+            .fflags("+discardcorrupt")
+            .input(stream_input)
+            .audio_codec("copy")
+            .no_video()
+            .bitstream_filter("aac_adtstoasc")
+            .duration(u64::from(self.dur))
+            .overwrite(true)
+            .output(&working_path)
+            .run()?;
+
+        if !output.is_success() {
+            error!("ffmpeg failed for {}: {}", self.title, output.stderr());
             return Err(RecordError::CommandFailed {
                 command: "ffmpeg".to_string(),
-                exit_code: output.status.code(),
-                stderr,
+                exit_code: output.exit_code(),
+                stderr: output.stderr(),
             });
         }
 
@@ -285,7 +294,8 @@ impl RecordRadiko {
             RecordError::Other(format!("Failed to move file for {}: {}", self.title, e))
         })?;
 
-        Ok(output.status)
+        // Return success status as ExitStatus with code 0
+        Ok(ExitStatus::from_raw(0))
     }
 
     fn auth1() -> Result<Response, RecordError> {

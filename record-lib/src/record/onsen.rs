@@ -1,12 +1,11 @@
 use crate::utils::{ensure_archive_path, RecordError}; // Added RecordError
+use crate::{FfmpegCommand, FfmpegInput};
 use fs_extra;
 use fs_extra::file::CopyOptions;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::env::temp_dir;
-// use std::fs; // Removed
 use std::path::Path;
-use std::process::Command;
 
 /// Represents the contents of an Onsen program episode.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -97,54 +96,51 @@ impl OnsenProgram {
                         warn!("{} already exists, skipping", &archive_file);
                         continue;
                     }
-                    let output = Command::new("ffmpeg")
-                        .arg("-loglevel")
-                        .arg("warning")
-                        .arg("-headers")
-                        .arg("Origin: https://www.onsen.ag")
-                        .arg("-headers")
-                        .arg("Referer: https://www.onsen.ag/")
-                        .arg("-y")
-                        .arg("-i")
-                        .arg(n)
-                        .arg("-vcodec")
-                        .arg("libx264")
-                        .arg("-acodec")
-                        .arg("copy")
-                        .arg("-bsf:a")
-                        .arg("aac_adtstoasc")
-                        .arg(&output_path)
-                        .output()?;
 
-                    if !output.status.success() {
-                        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                        error!(
-                            "ffmpeg failed for {} - {}: {}",
-                            self.title, contents.title, stderr
-                        );
-                        // Continue to next content on failure, or return Err?
-                        // For now, mimicking original by continuing, but logging error.
-                        // If this should halt, use:
-                        // return Err(RecordError::CommandFailed {
-                        // command: "ffmpeg".to_string(),
-                        // exit_code: output.status.code(),
-                        // stderr,
-                        // });
-                        continue;
+                    let stream_input = FfmpegInput::http(n)
+                        .header("Origin: https://www.onsen.ag\r\n")
+                        .header("Referer: https://www.onsen.ag/\r\n");
+
+                    let result = FfmpegCommand::new()
+                        .log_level("warning")
+                        .input(stream_input)
+                        .video_codec("libx264")
+                        .audio_codec("copy")
+                        .bitstream_filter("aac_adtstoasc")
+                        .overwrite(true)
+                        .output(&output_path)
+                        .run();
+
+                    match result {
+                        Ok(output) if output.is_success() => {
+                            let options = CopyOptions::new();
+                            fs_extra::file::move_file(
+                                &output_path,
+                                format!("{}/{}", archive_path, &file_name),
+                                &options,
+                            )
+                            .map_err(|e| {
+                                RecordError::Other(format!(
+                                    "Failed to move file for {} - {}: {}",
+                                    self.title, contents.title, e
+                                ))
+                            })?;
+                        }
+                        Ok(output) => {
+                            error!(
+                                "ffmpeg failed for {} - {}: {}",
+                                self.title,
+                                contents.title,
+                                output.stderr()
+                            );
+                        }
+                        Err(e) => {
+                            error!(
+                                "ffmpeg failed for {} - {}: {}",
+                                self.title, contents.title, e
+                            );
+                        }
                     }
-
-                    let options = CopyOptions::new();
-                    fs_extra::file::move_file(
-                        &output_path,
-                        format!("{}/{}", archive_path, &file_name),
-                        &options,
-                    )
-                    .map_err(|e| {
-                        RecordError::Other(format!(
-                            "Failed to move file for {} - {}: {}",
-                            self.title, contents.title, e
-                        ))
-                    })?;
                 }
                 None => warn!(
                     "streaming url is null for {},{}",

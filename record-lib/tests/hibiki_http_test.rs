@@ -9,18 +9,20 @@ use mockito::{Mock, ServerGuard};
 use record_lib::utils::RecordError;
 
 /// Helper function to create a mock server that returns specific status codes
+#[expect(dead_code)]
 fn create_mock_server(server: &mut ServerGuard, status_code: usize, path: &str) -> Mock {
-    return server
+    server
         .mock("GET", path)
         .with_status(status_code)
         .with_header("content-type", "text/html")
         .with_body("<html><body>Test response</body></html>")
-        .create();
+        .create()
 }
 
 /// Helper function to create a mock server that validates headers
+#[expect(dead_code)]
 fn create_header_validation_mock(server: &mut ServerGuard, path: &str) -> Mock {
-    return server
+    server
         .mock("GET", path)
         .match_header("user-agent", "*Mozilla*")
         .match_header("referer", "https://hibiki-radio.jp")
@@ -36,7 +38,7 @@ fn create_header_validation_mock(server: &mut ServerGuard, path: &str) -> Mock {
             </html>
         "#,
         )
-        .create();
+        .create()
 }
 
 #[test]

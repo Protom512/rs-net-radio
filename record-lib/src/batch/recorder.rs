@@ -18,7 +18,7 @@ use crate::utils::RecordError;
 pub struct BatchRecorder {
     max_parallel_jobs: usize,
     retry_count: u32,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "timeout is reserved for future use")]
     timeout: std::time::Duration,
 }
 
@@ -198,10 +198,13 @@ impl BatchRecorder {
     ///
     /// * `completed` - Number of completed recordings.
     /// * `total` - Total number of recordings.
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "f64 precision is acceptable for percentage display"
+    )]
     fn report_progress(completed: usize, total: usize) {
         let progress = (completed as f64 / total as f64) * 100.0;
-        info!("Progress: {}/{} ({:.1}%)", completed, total, progress);
+        info!("Progress: {completed}/{total} {progress:.1}%");
     }
 }
 
@@ -241,7 +244,10 @@ impl BatchSummary {
         println!("  失敗: {} ❌", self.failure_count);
 
         // 成功率
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "f64 precision is acceptable for percentage display"
+        )]
         if self.total_count > 0 {
             let success_rate = (self.success_count as f64 / self.total_count as f64) * 100.0;
             println!("  成功率: {success_rate:.1}%");
@@ -250,7 +256,10 @@ impl BatchSummary {
         // 処理時間
         println!("\n⏱️  処理時間:");
         println!("  総時間: {:.2}秒", self.duration.as_secs_f64());
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "f64 precision is acceptable for average time display"
+        )]
         if self.total_count > 0 {
             let avg_time = self.duration.as_secs_f64() / self.total_count as f64;
             println!("  平均時間: {avg_time:.2}秒/件");
@@ -284,7 +293,10 @@ impl BatchSummary {
 
     /// Returns the success rate as a percentage (0.0 to 100.0).
     #[must_use]
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "f64 precision is acceptable for percentage display"
+    )]
     pub fn success_rate(&self) -> f64 {
         if self.total_count == 0 {
             return 100.0;
@@ -364,7 +376,7 @@ mod tests {
         assert_eq!(summary.failure_count, 0);
     }
 
-    /// Task 4.1: Test result collection and aggregation with JoinSet
+    /// Task 4.1: Test result collection and aggregation with `JoinSet`
     #[tokio::test]
     async fn test_joinset_result_collection() {
         let recorder = BatchRecorder::new(3, 1, std::time::Duration::from_secs(30));
@@ -473,8 +485,8 @@ mod tests {
         let elapsed = start.elapsed();
 
         // Verify duration is recorded and reasonable
-        // Duration can be 0 for very fast operations, so we check it's not negative
-        assert!(summary.duration.as_nanos() >= 0);
+        // Duration is always >= 0 for u128
+        assert!(summary.duration.as_secs() <= elapsed.as_secs() + 1);
         // Duration should not exceed elapsed time by more than 100ms tolerance
         assert!(summary.duration.as_millis() <= elapsed.as_millis() + 100);
     }
@@ -623,6 +635,10 @@ mod tests {
 
         // Test that average time would be calculated correctly
         // The print_summary method uses: duration.as_secs_f64() / total_count as f64
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "f64 precision is acceptable for time calculations"
+        )]
         let calculated_avg = summary.duration.as_secs_f64() / summary.total_count as f64;
         assert!((calculated_avg - expected_avg).abs() < 0.001);
 
