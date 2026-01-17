@@ -14,19 +14,22 @@ use std::path::PathBuf;
 use record_lib::error::{handle_recording_error, ErrorSeverity, RecordingError};
 
 /// Helper struct to manage test log files
+#[allow(dead_code)]
 struct TestLogFile {
     path: PathBuf,
 }
 
 impl TestLogFile {
+    #[allow(dead_code)]
     fn new(test_name: &str) -> Self {
         let mut path = std::env::temp_dir();
-        path.push(format!("test_error_{}.log", test_name));
+        path.push(format!("test_error_{test_name}.log"));
         // Remove existing log file if present
         let _ = std::fs::remove_file(&path);
         Self { path }
     }
 
+    #[allow(dead_code)]
     fn read_lines(&self) -> Vec<String> {
         if !self.path.exists() {
             return Vec::new();
@@ -34,9 +37,10 @@ impl TestLogFile {
 
         let file = File::open(&self.path).expect("Failed to open log file");
         let reader = BufReader::new(file);
-        reader.lines().filter_map(|l| l.ok()).collect()
+        reader.lines().map_while(Result::ok).collect()
     }
 
+    #[allow(dead_code)]
     fn cleanup(&self) {
         let _ = std::fs::remove_file(&self.path);
     }
@@ -121,7 +125,7 @@ fn test_error_handler_returns_correct_exit_code() {
 fn test_error_messages_are_descriptive() {
     let error =
         RecordingError::http_status(403, "https://hibiki-radio.jp/program", "Access forbidden");
-    let error_string = format!("{}", error);
+    let error_string = format!("{error}");
 
     assert!(error_string.contains("403"));
     assert!(error_string.contains("https://hibiki-radio.jp/program"));
@@ -131,7 +135,7 @@ fn test_error_messages_are_descriptive() {
         "https://example.com/page",
         "Could not find streaming URL in HTML",
     );
-    let html_string = format!("{}", html_error);
+    let html_string = format!("{html_error}");
 
     assert!(html_string.contains("HTML parsing error"));
     assert!(html_string.contains("https://example.com/page"));
@@ -145,8 +149,8 @@ fn test_error_source_chain_preservation() {
     let recording_error = RecordingError::from(io_error);
 
     // The error should contain the original error information
-    let error_string = format!("{}", recording_error);
-    assert!(error_string.contains("File not found") || error_string.contains("IO error"));
+    let error_string = format!("{recording_error}");
+    assert!(error_string.contains("File not found") || error_string.contains("I/O error"));
 }
 
 #[test]
@@ -203,24 +207,24 @@ fn test_error_context_propagation() {
         stderr: "Error decoding input".to_string(),
     };
 
-    let error_string = format!("{}", command_error);
+    let error_string = format!("{command_error}");
     assert!(error_string.contains("ffmpeg"));
     // CommandFailed error format includes stderr
-    assert!(error_string.contains("Error decoding input") || error_string.contains("1"));
+    assert!(error_string.contains("Error decoding input") || error_string.contains('1'));
     assert_eq!(command_error.severity(), ErrorSeverity::Recoverable);
 
     let timeout_error = RecordingError::Timeout {
         timeout: std::time::Duration::from_secs(30),
     };
 
-    let timeout_string = format!("{}", timeout_error);
+    let timeout_string = format!("{timeout_error}");
     assert!(timeout_string.contains("timed out"));
 }
 
 #[test]
 fn test_multiple_error_types_integration() {
     // Test that we can create and handle multiple types of errors
-    let errors = vec![
+    let errors = [
         RecordingError::http_status(403, "https://hibiki-radio.jp", "Forbidden"),
         RecordingError::html_parsing("https://example.com", "Parse failed"),
         RecordingError::NetworkError("Network unreachable".to_string()),
@@ -243,7 +247,7 @@ fn test_error_logging_format() {
     let _log = TestLogFile::new("format");
 
     let error = RecordingError::http_status(403, "https://hibiki-radio.jp", "Forbidden");
-    let error_string = format!("{}", error);
+    let error_string = format!("{error}");
 
     // Verify error string format
     assert!(error_string.contains("HTTP"));
@@ -259,7 +263,7 @@ fn test_error_logging_format() {
 #[test]
 fn test_batch_error_scenarios() {
     // Test multiple errors that might occur in batch processing
-    let errors = vec![
+    let errors = [
         (
             "Program 1",
             RecordingError::http_status(500, "https://example.com/prog1", "Internal Server Error"),
@@ -279,7 +283,7 @@ fn test_batch_error_scenarios() {
 
     // All errors should be displayable
     for (program, error) in &errors {
-        let error_string = format!("{}", error);
+        let error_string = format!("{error}");
         assert!(
             !error_string.is_empty(),
             "Error for {} should not be empty",
@@ -311,7 +315,7 @@ fn test_error_in_async_context() {
 
     // Should be cloneable and shareable across threads
     let error_clone = Arc::clone(&error);
-    assert_eq!(format!("{}", error), format!("{}", error_clone));
+    assert_eq!(format!("{error}"), format!("{}", error_clone));
     assert_eq!(error.severity(), error_clone.severity());
 }
 
@@ -322,7 +326,7 @@ fn test_serialization_error_context() {
     let result: Result<Vec<i32>, _> = serde_json::from_str(json_str);
     let json_error = RecordingError::JsonError(result.unwrap_err());
 
-    let error_string = format!("{}", json_error);
+    let error_string = format!("{json_error}");
     assert!(error_string.contains("JSON"));
 
     // Should be recoverable

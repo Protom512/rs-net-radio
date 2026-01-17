@@ -1,4 +1,4 @@
-#![allow(clippy::missing_errors_doc)]
+#![expect(clippy::missing_errors_doc, reason = "module-level re-export pattern")]
 
 /// Module for handling hibiki-radio.jp radio recordings.
 pub mod hibiki;

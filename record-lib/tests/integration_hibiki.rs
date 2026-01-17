@@ -12,19 +12,19 @@ use record_lib::utils::{check_http_status, html_parsing_error, http_error, Recor
 
 /// Creates a mock server that returns a specific HTTP status code
 fn create_status_mock(server: &mut ServerGuard, status_code: usize, path: &str) -> Mock {
-    return server
+    server
         .mock("GET", path)
         .with_status(status_code)
         .with_header("content-type", "text/html")
         .with_body("<html><body>Test response</body></html>")
-        .create();
+        .create()
 }
 
 /// Creates a mock server that validates User-Agent and Referer headers
 fn create_header_validation_mock(server: &mut ServerGuard, path: &str) -> Mock {
-    return server
+    server
         .mock("GET", path)
-        .match_header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        .match_header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
         .match_header("referer", "https://hibiki-radio.jp")
         .with_status(200)
         .with_header("content-type", "text/html")
@@ -36,7 +36,7 @@ fn create_header_validation_mock(server: &mut ServerGuard, path: &str) -> Mock {
             </body>
             </html>
         "#)
-        .create();
+        .create()
 }
 
 /// Creates a mock server with valid HTML containing streaming URL
@@ -53,12 +53,12 @@ fn create_html_with_streaming_url(server: &mut ServerGuard, path: &str, url: &st
     "#
     );
 
-    return server
+    server
         .mock("GET", path)
         .with_status(200)
         .with_header("content-type", "text/html")
         .with_body(&html)
-        .create();
+        .create()
 }
 
 /// Creates a mock server with HTML containing script tag with streaming URL
@@ -78,12 +78,12 @@ fn create_html_with_script_url(server: &mut ServerGuard, path: &str, url: &str) 
     "#
     );
 
-    return server
+    server
         .mock("GET", path)
         .with_status(200)
         .with_header("content-type", "text/html")
         .with_body(&html)
-        .create();
+        .create()
 }
 
 /// Creates a mock server with iframe containing streaming URL
@@ -100,16 +100,16 @@ fn create_html_with_iframe(server: &mut ServerGuard, path: &str, url: &str) -> M
     "#
     );
 
-    return server
+    server
         .mock("GET", path)
         .with_status(200)
         .with_header("content-type", "text/html")
         .with_body(&html)
-        .create();
+        .create()
 }
 
 #[test]
-#[ignore] // TODO: Fix hanging test
+#[ignore = "TODO: Fix hanging test"]
 fn test_hibiki_scraper_with_valid_html() {
     let mut server = mockito::Server::new();
     let _mock = create_html_with_streaming_url(
@@ -133,7 +133,7 @@ fn test_hibiki_scraper_with_valid_html() {
 }
 
 #[test]
-#[ignore] // TODO: Fix hanging test
+#[ignore = "TODO: Fix hanging test"]
 fn test_hibiki_scraper_with_script_tag() {
     let mut server = mockito::Server::new();
     let _mock = create_html_with_script_url(
@@ -160,7 +160,7 @@ fn test_hibiki_scraper_with_script_tag() {
 }
 
 #[test]
-#[ignore] // TODO: Fix hanging test
+#[ignore = "TODO: Fix hanging test"]
 fn test_hibiki_scraper_with_iframe() {
     let mut server = mockito::Server::new();
     let _mock = create_html_with_iframe(
@@ -187,7 +187,7 @@ fn test_hibiki_scraper_with_iframe() {
 }
 
 #[test]
-#[ignore] // TODO: Fix hanging test
+#[ignore = "TODO: Fix hanging test"]
 fn test_hibiki_scraper_with_html_missing_url() {
     let mut server = mockito::Server::new();
     let _mock = server
@@ -361,7 +361,7 @@ fn test_hibiki_scraper_headers_are_sent() {
 }
 
 #[test]
-#[ignore] // TODO: Fix hanging test
+#[ignore = "TODO: Fix hanging test"]
 fn test_hibiki_scraper_various_html_structures() {
     let test_cases = vec![
         // Data attribute
@@ -436,7 +436,7 @@ fn test_html_parsing_error_handling() {
 }
 
 #[test]
-#[ignore] // TODO: Fix hanging test
+#[ignore = "TODO: Fix hanging test"]
 fn test_hibiki_scraper_with_malformed_html() {
     let mut server = mockito::Server::new();
     let _mock = server
@@ -457,13 +457,13 @@ fn test_hibiki_scraper_with_malformed_html() {
 }
 
 #[test]
-#[ignore] // TODO: Fix this test - it hangs due to mock server conflicts
+#[ignore = "TODO: Fix this test - it hangs due to mock server conflicts"]
 fn test_hibiki_scraper_url_validation() {
     // Test URL validation indirectly by checking if URLs are extracted correctly
     let mut server = mockito::Server::new();
 
     // Test with various URL patterns
-    let valid_urls = vec![
+    let valid_urls = [
         ("https://example.com/stream.m3u8", "m3u8"),
         ("http://example.com/video.mp4", "mp4"),
         ("https://example.com/streaming", "streaming"),
@@ -483,7 +483,7 @@ fn test_hibiki_scraper_url_validation() {
         "#
         );
 
-        let path = format!("/validate-{}", i);
+        let path = format!("/validate-{i}");
         let _mock = server
             .mock("GET", path.as_str())
             .with_status(200)
@@ -526,7 +526,7 @@ fn test_hibiki_scraper_url_validation() {
 }
 
 #[test]
-#[ignore] // TODO: Fix hanging test
+#[ignore = "TODO: Fix hanging test"]
 fn test_hibiki_scraper_with_network_error() {
     // Use a non-routable IP to simulate network error
     let scraper = HibikiScraper::new().expect("Failed to create scraper");

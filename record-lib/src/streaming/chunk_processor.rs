@@ -3,9 +3,18 @@
 //! This module provides efficient chunked processing of streaming audio
 //! to minimize memory usage through 4KB chunk-based processing with async I/O.
 
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::items_after_statements)]
-#![allow(clippy::cast_precision_loss)]
+#![expect(
+    clippy::missing_errors_doc,
+    reason = "error cases are documented at module level"
+)]
+#![expect(
+    clippy::items_after_statements,
+    reason = "helper functions are defined after usage for code organization"
+)]
+#![expect(
+    clippy::cast_precision_loss,
+    reason = "f64 precision is acceptable for percentage display"
+)]
 
 use anyhow::{Context, Result};
 use std::path::Path;
@@ -239,7 +248,9 @@ impl ChunkProcessor {
 
             // Log progress every 100 chunks or every 5 seconds
             let now = std::time::Instant::now();
-            if chunk_count % 100 == 0 || now.duration_since(last_progress_time).as_secs() >= 5 {
+            if chunk_count.is_multiple_of(100)
+                || now.duration_since(last_progress_time).as_secs() >= 5
+            {
                 let elapsed = now.duration_since(start_time).as_secs_f64();
                 let throughput = if elapsed > 0.0 {
                     (total_bytes as f64 / 1024.0 / 1024.0) / elapsed
@@ -254,7 +265,7 @@ impl ChunkProcessor {
             }
 
             // Detect potential memory leaks periodically
-            if chunk_count % 1000 == 0 {
+            if chunk_count.is_multiple_of(1000) {
                 if let Err(leak_err) = self.memory_monitor.detect_potential_leak() {
                     warn!("Potential memory leak detected: {}", leak_err);
                 }
@@ -303,9 +314,9 @@ mod tests {
     use tokio::io::AsyncReadExt;
 
     /// テスト用のモックHTTPサーバーを作成
-    async fn create_mock_http_server(port: u16) -> tokio::task::JoinHandle<()> {
+    fn create_mock_http_server(port: u16) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
-            let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port))
+            let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
                 .await
                 .expect("Failed to bind mock server");
 
@@ -479,7 +490,7 @@ mod tests {
 
         let processor = ChunkProcessor::new(&output_path, CHUNK_SIZE, memory_monitor);
 
-        let url = format!("http://127.0.0.1:{}/test_stream", port);
+        let url = format!("http://127.0.0.1:{port}/test_stream");
         let result = processor.process_stream(&url).await;
 
         assert!(

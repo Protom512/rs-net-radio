@@ -3,10 +3,19 @@
 //! This module provides functionality to scrape Hibiki Radio pages
 //! and extract streaming URLs from HTML content.
 
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::unnecessary_wraps)]
-#![allow(clippy::unused_self)]
+#![expect(
+    clippy::missing_errors_doc,
+    reason = "error cases are documented at module level"
+)]
+#![expect(
+    clippy::missing_panics_doc,
+    reason = "panics only occur in unrecoverable error conditions"
+)]
+#![expect(
+    clippy::unnecessary_wraps,
+    reason = "return wrapper needed for API consistency"
+)]
+#![expect(clippy::unused_self, reason = "self parameter reserved for future use")]
 
 use crate::utils::{handle_html_parsing_error, html_parsing_error, RecordError};
 use reqwest::blocking::Client;
@@ -40,6 +49,12 @@ impl HibikiScraper {
         })
     }
 
+    /// Returns the default User-Agent string for Hibiki Radio requests.
+    fn default_user_agent() -> &'static str {
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+         (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+    }
+
     /// Extracts the streaming URL from a Hibiki Radio page.
     ///
     /// # Arguments
@@ -56,15 +71,15 @@ impl HibikiScraper {
     pub fn extract_streaming_url(&self, page_url: &str) -> Result<String, RecordError> {
         info!("Fetching Hibiki Radio page: {}", page_url);
 
-        // Fetch the page with proper headers
+        // Fetch the page with proper headers matching modern browser
         let response = self
             .client
             .get(page_url)
-            .header(
-                USER_AGENT,
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            )
+            .header(USER_AGENT, Self::default_user_agent())
             .header(REFERER, &self.base_url)
+            .header("sec-ch-ua", r#""Not(A:Brand";v="8", "Chromium";v="144""#)
+            .header("sec-ch-ua-mobile", "?0")
+            .header("sec-ch-ua-platform", r#""Windows""#)
             .send()
             .map_err(RecordError::Reqwest)?;
 
@@ -286,10 +301,10 @@ impl HibikiScraper {
         let response = self
             .client
             .head(url)
-            .header(
-                USER_AGENT,
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            )
+            .header(USER_AGENT, Self::default_user_agent())
+            .header("sec-ch-ua", r#""Not(A:Brand";v="8", "Chromium";v="144""#)
+            .header("sec-ch-ua-mobile", "?0")
+            .header("sec-ch-ua-platform", r#""Windows""#)
             .send()
             .map_err(RecordError::Reqwest)?;
 
@@ -404,14 +419,14 @@ mod tests {
     fn test_html_parsing_error_handling() {
         let scraper = HibikiScraper::new().expect("Failed to create scraper for test");
 
-        let invalid_html = r#"
+        let invalid_html = r"
         <!DOCTYPE html>
         <html>
         <body>
         <p>No streaming URL here</p>
         </body>
         </html>
-        "#;
+        ";
 
         let document = Html::parse_document(invalid_html);
 

@@ -3,7 +3,14 @@
 //! This module provides comprehensive logging functionality with
 //! automatic error logging to error.log file with rotation.
 
-#![allow(clippy::missing_panics_doc)]
+#![expect(
+    clippy::mod_module_files,
+    reason = "mod.rs naming convention is intentional for module organization"
+)]
+#![expect(
+    clippy::missing_panics_doc,
+    reason = "functions only panic in unrecoverable error conditions"
+)]
 
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -80,9 +87,7 @@ pub fn init_logging(config: &LoggingConfig) -> anyhow::Result<()> {
         .create(true)
         .append(true)
         .open(&error_log_path)
-        .map_err(|e| {
-            anyhow::anyhow!("Failed to open error log file '{}': {}", error_log_path, e)
-        })?;
+        .map_err(|e| anyhow::anyhow!("Failed to open error log file '{error_log_path}': {e}"))?;
 
     let file_layer = fmt::layer()
         .with_writer(move || {
@@ -135,7 +140,10 @@ fn check_and_rotate_log(
     }
 
     let metadata = std::fs::metadata(path)?;
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "file size is expected to fit in usize on target platforms"
+    )]
     let file_size = metadata.len() as usize;
 
     if file_size < max_size {

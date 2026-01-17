@@ -3,7 +3,10 @@
 //! This module provides memory usage monitoring and limiting functionality
 //! for streaming audio operations.
 
-#![allow(clippy::missing_panics_doc)]
+#![expect(
+    clippy::missing_panics_doc,
+    reason = "panics only occur in unrecoverable error conditions"
+)]
 
 use anyhow::Result;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
@@ -80,14 +83,10 @@ impl MemoryMonitor {
 
         self.monitoring_active.store(true, Ordering::Relaxed);
 
-        match self.start_time.lock() {
-            Ok(mut guard) => *guard = Some(std::time::Instant::now()),
-            Err(e) => {
-                return Err(anyhow::anyhow!(
-                    "Failed to acquire lock for start_time: {}",
-                    e
-                ));
-            }
+        if let Ok(mut guard) = self.start_time.lock() {
+            *guard = Some(std::time::Instant::now());
+        } else {
+            return Err(anyhow::anyhow!("Failed to acquire lock for start_time"));
         }
 
         debug!(
@@ -125,14 +124,21 @@ impl MemoryMonitor {
     ///
     /// * `Ok(())` - No leak detected
     /// * `Err(String)` - Potential leak detected with details
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if a potential memory leak is detected (growth > 50%).
     pub fn detect_potential_leak(&self) -> Result<(), String> {
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "atomic values are expected to fit in usize on target platforms"
+        )]
         let current = self.current_usage.load(Ordering::Relaxed) as usize;
 
         let mut prev_usage = self
             .previous_usage
             .lock()
-            .map_err(|e| format!("Failed to acquire lock for leak detection: {}", e))?;
+            .map_err(|e| format!("Failed to acquire lock for leak detection: {e}"))?;
 
         let snapshot_num = self.snapshot_count.fetch_add(1, Ordering::Relaxed);
 
@@ -145,6 +151,10 @@ impl MemoryMonitor {
         // Check if usage is growing consistently
         if current > *prev_usage {
             let growth = current - *prev_usage;
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "f64 precision is acceptable for percentage display"
+            )]
             let growth_percentage = if *prev_usage > 0 {
                 (growth as f64 / *prev_usage as f64) * 100.0
             } else {
@@ -175,7 +185,10 @@ impl MemoryMonitor {
     ///
     /// Returns an error if the memory limit is exceeded.
     pub fn check_memory_limit(&self) -> Result<()> {
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "atomic values are expected to fit in usize on target platforms"
+        )]
         let current = self.current_usage.load(Ordering::Relaxed) as usize;
 
         if current > self.memory_limit {
@@ -192,7 +205,10 @@ impl MemoryMonitor {
 
         // Warning at 80% of limit
         if current > (self.memory_limit * 4 / 5) {
-            #[allow(clippy::cast_precision_loss)]
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "f64 precision is acceptable for percentage display"
+            )]
             let percentage = (current as f64 / self.memory_limit as f64) * 100.0;
             warn!(
                 "Memory usage approaching limit: {} bytes ({}% of limit)",
@@ -237,23 +253,23 @@ impl MemoryMonitor {
     /// Gets the current memory usage statistics.
     #[must_use]
     pub fn get_stats(&self) -> MemoryStats {
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "atomic values are expected to fit in usize on target platforms"
+        )]
         let usage = self.current_usage.load(Ordering::Relaxed) as usize;
         let total = self.total_bytes.load(Ordering::Relaxed);
         let chunks = self.chunk_count.load(Ordering::Relaxed);
 
-        let duration = match self.start_time.lock() {
-            Ok(guard) => {
-                if let Some(start) = *guard {
-                    start.elapsed()
-                } else {
-                    std::time::Duration::from_secs(0)
-                }
-            }
-            Err(_) => {
-                debug!("Failed to acquire lock for start_time, using zero duration");
+        let duration = if let Ok(guard) = self.start_time.lock() {
+            if let Some(start) = *guard {
+                start.elapsed()
+            } else {
                 std::time::Duration::from_secs(0)
             }
+        } else {
+            debug!("Failed to acquire lock for start_time, using zero duration");
+            std::time::Duration::from_secs(0)
         };
 
         MemoryStats {
@@ -266,7 +282,10 @@ impl MemoryMonitor {
 
     /// Gets the current memory usage in bytes.
     #[must_use]
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "atomic values are expected to fit in usize on target platforms"
+    )]
     pub fn current_usage(&self) -> usize {
         self.current_usage.load(Ordering::Relaxed) as usize
     }
@@ -283,7 +302,10 @@ impl MemoryMonitor {
         if self.memory_limit == 0 {
             return 0.0;
         }
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "f64 precision is acceptable for percentage display"
+        )]
         let percentage =
             (self.current_usage.load(Ordering::Relaxed) as f64 / self.memory_limit as f64) * 100.0;
         percentage
