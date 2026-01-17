@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/protom512/rs-net-radio/blob/master/README.md
+    about: Check the documentation first
+  - name: Discussion Board
+    url: https://github.com/protom512/rs-net-radio/discussions
+    about: Ask questions and discuss with the community
