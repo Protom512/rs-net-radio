@@ -8,10 +8,6 @@
     reason = "error cases are documented at module level"
 )]
 #![expect(
-    clippy::missing_panics_doc,
-    reason = "panics only occur in unrecoverable error conditions"
-)]
-#![expect(
     clippy::unnecessary_wraps,
     reason = "return wrapper needed for API consistency"
 )]

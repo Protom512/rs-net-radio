@@ -3,11 +3,6 @@
 //! This module provides memory usage monitoring and limiting functionality
 //! for streaming audio operations.
 
-#![expect(
-    clippy::missing_panics_doc,
-    reason = "panics only occur in unrecoverable error conditions"
-)]
-
 use anyhow::Result;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;

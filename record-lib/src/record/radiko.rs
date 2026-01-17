@@ -10,10 +10,6 @@
     clippy::used_underscore_binding,
     reason = "underscore bindings are intentional to indicate intentionally unused values"
 )]
-#![expect(
-    clippy::used_underscore_items,
-    reason = "underscore items are intentional to indicate intentionally unused items"
-)]
 
 use crate::utils::{ensure_archive_path, sanitize_filename, RecordError}; // Added RecordError
 use crate::{FfmpegCommand, FfmpegInput};

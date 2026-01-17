@@ -4,10 +4,6 @@
 //! to minimize memory usage through 4KB chunk-based processing with async I/O.
 
 #![expect(
-    clippy::missing_errors_doc,
-    reason = "error cases are documented at module level"
-)]
-#![expect(
     clippy::items_after_statements,
     reason = "helper functions are defined after usage for code organization"
 )]
