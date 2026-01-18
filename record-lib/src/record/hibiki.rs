@@ -18,10 +18,8 @@ use reqwest::blocking::Response;
 use reqwest::header::USER_AGENT;
 use serde::Deserialize;
 use serde_json;
-use std::env::temp_dir;
 
 extern crate m3u8_rs;
-extern crate tempdir;
 use fs_extra;
 
 use std::path::Path;
@@ -261,22 +259,26 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         return Err(err_msg); // Or Ok(()), depending on whether this is considered an error or just a skippable item.
     }
 
-    let tmpdir = if let Some(m) = temp_dir().to_str() {
-        info!("working path: {m}");
-        m.to_string()
-    } else {
-        // This is a more critical system issue.
-        // For a library function, returning Err is better than panic.
-        let err_msg = "Cannot find tmpdir".to_string();
-        error!("{err_msg}");
-        return Err(err_msg);
+    // Create a temporary directory that is automatically cleaned up when it goes out of scope.
+    let temp_dir = match tempfile::Builder::new()
+        .prefix("hibiki_")
+        .tempdir()
+    {
+        Ok(dir) => dir,
+        Err(e) => {
+            let err_msg = format!("Failed to create temporary directory: {}", e);
+            error!("{}", err_msg);
+            return Err(err_msg);
+        }
     };
+    info!("working path: {:?}", temp_dir.path());
+    let tmpdir = temp_dir.path();
 
-    let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, sanitize_filename(&program.name));
+    let imagefile = tmpdir.join(format!("{}_thumb.jpg", sanitize_filename(&program.name)));
     let mut img = match std::fs::File::create(&imagefile) {
         Ok(f) => f,
         Err(e) => {
-            let err_msg = format!("Failed to create image file {imagefile}: {e}");
+            let err_msg = format!("Failed to create image file {}: {e}", imagefile.display());
             error!("{err_msg}");
             return Err(err_msg);
         }
@@ -319,7 +321,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     // create file_name
     let filename = generate_episode_filename(&program.name, program.latest_episode_name.as_deref());
     let output_path = format!("{}/{}", archive_base_path, &filename);
-    let working_path = format!("{}/{}", tmpdir, &filename);
+    let working_path = tmpdir.join(&filename);
 
     debug!("name:{}\n\tid:{:?}\n", program.name, video.live_flg);
     let url = match video.get_m3u8_url() {
@@ -341,7 +343,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
                      (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
 
-    let thumbnail_input = FfmpegInput::file(&imagefile);
+    let thumbnail_input = FfmpegInput::file(imagefile.to_string_lossy());
     let stream_input = FfmpegInput::http(&url)
         .header(format!("User-Agent: {user_agent}\r\n"))
         .header("Referer: https://hibiki-radio.jp/\r\n")
@@ -354,7 +356,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         .video_codec("copy")
         .audio_codec("copy")
         .bitstream_filter("aac_adtstoasc")
-        .output(&working_path)
+        .output(working_path.to_string_lossy())
         .run()
         .and_then(FfmpegOutput::into_result)
         .map_err(|e| {
@@ -365,7 +367,12 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
 
     let options = CopyOptions::new();
     fs_extra::file::move_file(&working_path, &output_path, &options).map_err(|e| {
-        let err_msg = format!("Failed to move file from {working_path} to {output_path}: {e}");
+        let err_msg = format!(
+            "Failed to move file from {} to {}: {}",
+            working_path.display(),
+            output_path,
+            e
+        );
         error!("{err_msg}");
         err_msg
     })?;
