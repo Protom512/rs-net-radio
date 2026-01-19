@@ -3,6 +3,8 @@
 //! This module implements the `BatchRecorder` which manages parallel recording
 //! of multiple programs with semaphore-based concurrency control.
 
+use rand::rngs::ThreadRng;
+use rand::Rng;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
@@ -174,12 +176,21 @@ impl BatchRecorder {
                     return Ok(title);
                 }
                 Err(e) if attempts <= retry_count => {
+                    // Exponential backoff with jitter
+                    let delay = {
+                        let mut rng = ThreadRng::default();
+                        let base_delay = 2u64.pow(attempts - 1);
+                        let jitter = rng.gen_range(0..=1000);
+                        std::time::Duration::from_secs(base_delay)
+                            + std::time::Duration::from_millis(jitter)
+                    };
+
                     warn!(
-                        "Recording attempt {} failed for {}: {}, retrying...",
-                        attempts, title, e
+                        "Recording attempt {} failed for {}: {}, retrying in {:?}...",
+                        attempts, title, e, delay
                     );
 
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    tokio::time::sleep(delay).await;
                 }
                 Err(e) => {
                     error!(
@@ -671,5 +682,63 @@ mod tests {
 
         // Test that print_summary works for empty batch
         summary.print_summary();
+    }
+
+    /// Test exponential backoff retry logic
+    #[tokio::test]
+    async fn test_exponential_backoff_retry() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        struct FailingService {
+            attempt_count: AtomicUsize,
+        }
+
+        impl FailingService {
+            fn new() -> Self {
+                Self {
+                    attempt_count: AtomicUsize::new(0),
+                }
+            }
+        }
+
+        #[async_trait]
+        impl RecordService for FailingService {
+            async fn record(
+                &self,
+                _url: &str,
+                _output_path: &std::path::Path,
+            ) -> Result<RecordingMetadata, RecordError> {
+                self.attempt_count.fetch_add(1, Ordering::SeqCst);
+                Err(RecordError::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Simulated failure",
+                )))
+            }
+        }
+
+        let failing_service = Arc::new(FailingService::new());
+        let service: Arc<dyn RecordService> = failing_service.clone();
+        let recorder = BatchRecorder::new(1, 2, std::time::Duration::from_secs(30)); // 2 retries
+
+        let programs = vec![Program {
+            title: "Retry Program".to_string(),
+            url: "http://example.com/retry".to_string(),
+            output_path: std::path::PathBuf::from("/tmp/retry.m4a"),
+        }];
+
+        let start = std::time::Instant::now();
+        let summary = recorder.record_batch(programs, service).await.unwrap();
+        let duration = start.elapsed();
+
+        // 1 initial attempt + 2 retries = 3 total attempts
+        assert_eq!(
+            failing_service.attempt_count.load(Ordering::SeqCst),
+            3
+        );
+        assert_eq!(summary.failure_count, 1);
+
+        // Verify that the delay was applied (1s + 2s = 3s total backoff)
+        // Adding a small buffer for the jitter and execution time
+        assert!(duration.as_secs() >= 3);
     }
 }
