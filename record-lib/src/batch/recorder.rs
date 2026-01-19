@@ -3,12 +3,12 @@
 //! This module implements the `BatchRecorder` which manages parallel recording
 //! of multiple programs with semaphore-based concurrency control.
 
+use crate::domain::service::{Program, RecordService};
+use indicatif::{ProgressBar, ProgressStyle};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
-
-use crate::domain::service::{Program, RecordService};
 use crate::utils::RecordError;
 
 /// Batch recorder for parallel recording tasks.
@@ -75,9 +75,18 @@ impl BatchRecorder {
         assert!(self.max_parallel_jobs > 0, "max_parallel_jobs must be > 0");
 
         let start_time = Instant::now();
-        let total = programs.len();
+        let total = programs.len() as u64;
         let semaphore = Arc::new(Semaphore::new(self.max_parallel_jobs));
         let mut tasks = tokio::task::JoinSet::new();
+
+        let progress_bar = ProgressBar::new(total);
+        progress_bar.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
+                .unwrap()
+                .progress_chars("#>-"),
+        );
+
 
         info!(
             "Starting batch recording: {} programs, max parallel: {}",
@@ -108,10 +117,10 @@ impl BatchRecorder {
         let mut failures = Vec::new();
 
         while let Some(result) = tasks.join_next().await {
+            progress_bar.inc(1);
             match result {
                 Ok(Ok(_title)) => {
                     successes += 1;
-                    Self::report_progress(successes, total);
                 }
                 Ok(Err((title, err))) => {
                     failures.push((title.clone(), err));
@@ -122,6 +131,7 @@ impl BatchRecorder {
                 }
             }
         }
+        progress_bar.finish_with_message("All recordings processed.");
 
         let duration = start_time.elapsed();
 
@@ -133,7 +143,7 @@ impl BatchRecorder {
         );
 
         Ok(BatchSummary {
-            total_count: total,
+            total_count: total as usize,
             success_count: successes,
             failure_count: failures.len(),
             failures,
@@ -192,20 +202,6 @@ impl BatchRecorder {
         }
     }
 
-    /// Reports recording progress.
-    ///
-    /// # Arguments
-    ///
-    /// * `completed` - Number of completed recordings.
-    /// * `total` - Total number of recordings.
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "f64 precision is acceptable for percentage display"
-    )]
-    fn report_progress(completed: usize, total: usize) {
-        let progress = (completed as f64 / total as f64) * 100.0;
-        info!("Progress: {completed}/{total} {progress:.1}%");
-    }
 }
 
 /// Summary of a batch recording operation.

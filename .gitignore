@@ -1,6 +1,7 @@
 target
 Temp
 TEMP
+*.log
 net-radio-archive
 *json
 .DS_Store
