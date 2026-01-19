@@ -4,6 +4,7 @@ TEMP
 net-radio-archive
 *json
 .DS_Store
+*.log
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/jetbrains,rust,visualstudiocode,vim
@@ -171,4 +172,4 @@ tags
 # Support for Project snippet scope
 !.vscode/*.code-snippets
 
-# End of https://www.toptal.com/developers/gitignore/api/jetbrains,rust,visualstudiocode,vim.]
+# End of https://www.toptal.com/developers/gitignore/api/jetbrains,rust,visualstudiocode,vim.

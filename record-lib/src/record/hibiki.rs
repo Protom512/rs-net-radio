@@ -21,7 +21,6 @@ use serde_json;
 use std::env::temp_dir;
 
 extern crate m3u8_rs;
-extern crate tempdir;
 use fs_extra;
 
 use std::path::Path;
