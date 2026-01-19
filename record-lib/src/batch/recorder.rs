@@ -731,10 +731,7 @@ mod tests {
         let duration = start.elapsed();
 
         // 1 initial attempt + 2 retries = 3 total attempts
-        assert_eq!(
-            failing_service.attempt_count.load(Ordering::SeqCst),
-            3
-        );
+        assert_eq!(failing_service.attempt_count.load(Ordering::SeqCst), 3);
         assert_eq!(summary.failure_count, 1);
 
         // Verify that the delay was applied (1s + 2s = 3s total backoff)
