@@ -4,12 +4,12 @@
 //! of multiple programs with semaphore-based concurrency control.
 
 use crate::domain::service::{Program, RecordService};
+use crate::utils::RecordError;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
-use crate::utils::RecordError;
 
 /// Batch recorder for parallel recording tasks.
 ///
@@ -82,11 +82,12 @@ impl BatchRecorder {
         let progress_bar = ProgressBar::new(total);
         progress_bar.set_style(
             ProgressStyle::default_bar()
-                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
+                .template(
+                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+                )
                 .unwrap()
                 .progress_chars("#>-"),
         );
-
 
         info!(
             "Starting batch recording: {} programs, max parallel: {}",
@@ -201,7 +202,6 @@ impl BatchRecorder {
             }
         }
     }
-
 }
 
 /// Summary of a batch recording operation.
