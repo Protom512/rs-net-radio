@@ -260,7 +260,10 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     }
 
     // Create a temporary directory that is automatically cleaned up when it goes out of scope.
-    let temp_dir = match tempfile::Builder::new().prefix("hibiki_").tempdir() {
+    let temp_dir = match tempfile::Builder::new()
+        .prefix("hibiki_")
+        .tempdir()
+    {
         Ok(dir) => dir,
         Err(e) => {
             let err_msg = format!("Failed to create temporary directory: {}", e);
