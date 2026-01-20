@@ -4,12 +4,12 @@
 //! of multiple programs with semaphore-based concurrency control.
 
 use crate::domain::service::{Program, RecordService};
-use crate::utils::RecordError;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
+use crate::utils::RecordError;
 
 /// Batch recorder for parallel recording tasks.
 ///
@@ -75,19 +75,18 @@ impl BatchRecorder {
         assert!(self.max_parallel_jobs > 0, "max_parallel_jobs must be > 0");
 
         let start_time = Instant::now();
-        let total = programs.len() as u64;
+        let total = programs.len();
         let semaphore = Arc::new(Semaphore::new(self.max_parallel_jobs));
         let mut tasks = tokio::task::JoinSet::new();
 
-        let progress_bar = ProgressBar::new(total);
+        let progress_bar = ProgressBar::new(total as u64);
         progress_bar.set_style(
             ProgressStyle::default_bar()
-                .template(
-                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
-                )
+                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
                 .unwrap()
                 .progress_chars("#>-"),
         );
+
 
         info!(
             "Starting batch recording: {} programs, max parallel: {}",
@@ -144,7 +143,7 @@ impl BatchRecorder {
         );
 
         Ok(BatchSummary {
-            total_count: total as usize,
+            total_count: total,
             success_count: successes,
             failure_count: failures.len(),
             failures,
@@ -202,6 +201,7 @@ impl BatchRecorder {
             }
         }
     }
+
 }
 
 /// Summary of a batch recording operation.
