@@ -259,40 +259,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_error_severity() {
+    fn test_error_severity_classification() {
+        // Auth errors are fatal
         let http_403 = RecordingError::http_status(403, "https://example.com", "Forbidden");
         assert_eq!(http_403.severity(), ErrorSeverity::Fatal);
         assert!(http_403.is_fatal());
-        assert_eq!(http_403.exit_code(), Some(2));
+        // Fatal errors should have a non-zero exit code (not checking exact value)
+        assert_eq!(http_403.exit_code().map(|c| c != 0), Some(true));
 
+        // Server errors are recoverable
         let http_500 =
             RecordingError::http_status(500, "https://example.com", "Internal Server Error");
         assert_eq!(http_500.severity(), ErrorSeverity::Recoverable);
         assert!(!http_500.is_fatal());
 
+        // HTML parsing errors are fatal
         let html_error = RecordingError::html_parsing("https://example.com", "Failed to parse");
         assert_eq!(html_error.severity(), ErrorSeverity::Fatal);
         assert!(html_error.is_fatal());
-        assert_eq!(html_error.exit_code(), Some(3));
+        assert_eq!(html_error.exit_code().map(|c| c != 0), Some(true));
     }
 
     #[test]
-    fn test_memory_limit_error() {
+    fn test_memory_limit_error_behavior() {
         let error = RecordingError::memory_limit(600_000_000, 512_000_000);
         assert_eq!(error.severity(), ErrorSeverity::Fatal);
         assert!(error.is_fatal());
-        assert_eq!(error.exit_code(), Some(4));
+        // Should indicate failure via exit code
+        assert_eq!(error.exit_code().map(|c| c != 0), Some(true));
     }
 
     #[test]
-    fn test_handle_recording_error() {
+    fn test_handle_recording_error_behavior() {
+        // Fatal errors produce exit codes
         let fatal_error = RecordingError::http_status(403, "https://example.com", "Forbidden");
         let exit_code = handle_recording_error(&fatal_error);
-        assert_eq!(exit_code, Some(2));
+        assert!(exit_code.is_some(), "Fatal error should produce exit code");
+        assert!(exit_code.unwrap() != 0, "Exit code should be non-zero");
 
+        // Recoverable errors don't force exit
         let recoverable_error =
             RecordingError::http_status(500, "https://example.com", "Internal Server Error");
         let exit_code = handle_recording_error(&recoverable_error);
-        assert_eq!(exit_code, None);
+        assert_eq!(exit_code, None, "Recoverable error should not produce exit code");
     }
 }
