@@ -1,20 +1,19 @@
 //! Main entry point for the rs-net-radio application.
 //!
-//! This is a refactored version that uses the new architecture with
-//! `BatchRecorder` and `CronManager` for better separation of concerns.
+//! This version uses the AppFacade pattern to reduce coupling
+//! between the main entry point and internal modules.
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use record_lib::batch::BatchRecorder;
-use record_lib::config::repository::ConfigRepository;
-use record_lib::config::FileConfigRepository;
-use record_lib::domain::service::Program;
-use record_lib::scheduler::CronManager;
+use record_lib::application::AppFacade;
+use record_lib::config::CronConfig;
+use record_lib::domain::service::RecordService;
+use record_lib::domain::metadata::RecordingMetadata;
 use record_lib::utils::RecordError;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 /// Command-line arguments for the application.
@@ -48,18 +47,18 @@ enum Commands {
 struct MockRecordService;
 
 #[async_trait::async_trait]
-impl record_lib::domain::service::RecordService for MockRecordService {
+impl RecordService for MockRecordService {
     async fn record(
         &self,
         url: &str,
         output_path: &std::path::Path,
-    ) -> Result<record_lib::domain::metadata::RecordingMetadata, RecordError> {
+    ) -> Result<RecordingMetadata, RecordError> {
         info!("Recording from {} to {}", url, output_path.display());
 
         // Simulate recording
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        Ok(record_lib::domain::metadata::RecordingMetadata::new(
+        Ok(RecordingMetadata::new(
             "Mock Program".to_string(),
             chrono::Utc::now(),
             chrono::Utc::now(),
@@ -97,7 +96,7 @@ fn init_tracing() {
         .init();
 }
 
-/// Runs batch recording from a program list file.
+/// Runs batch recording from a program list file using AppFacade.
 ///
 /// # Arguments
 ///
@@ -109,31 +108,14 @@ fn init_tracing() {
 async fn run_batch_recording(input_path: PathBuf) -> Result<()> {
     info!("Starting batch recording from: {}", input_path.display());
 
-    // Load configuration
-    let config_repo = FileConfigRepository;
-    let config = config_repo
-        .load()
-        .await
-        .context("Failed to load configuration")?;
-
-    // Parse program list
-    let programs = parse_program_list(&input_path).context("Failed to parse program list")?;
-
-    // Create batch recorder
-    let recorder = BatchRecorder::new(
-        config.batch.max_parallel_jobs,
-        config.batch.retry_count,
-        Duration::from_secs(config.batch.timeout_seconds),
-    );
+    // Create application facade
+    let facade = AppFacade::new().await?;
 
     // Create recording service
     let service = Arc::new(MockRecordService);
 
-    // Execute batch recording
-    let summary = recorder
-        .record_batch(programs, service)
-        .await
-        .context("Batch recording failed")?;
+    // Execute batch recording through facade
+    let summary = facade.run_batch(input_path, service).await?;
 
     // Print summary
     summary.print_summary();
@@ -141,7 +123,7 @@ async fn run_batch_recording(input_path: PathBuf) -> Result<()> {
     Ok(())
 }
 
-/// Runs cron-based scheduled recording.
+/// Runs cron-based scheduled recording using AppFacade.
 ///
 /// # Arguments
 ///
@@ -160,11 +142,12 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
     let cron_config =
         load_cron_config(&config_path).context("Failed to load cron configuration")?;
 
-    // Create cron manager
+    // Create application facade
+    let facade = AppFacade::new().await?;
+
+    // Create cron manager through facade
     let service = Arc::new(MockRecordService);
-    let cron_manager = CronManager::new(service)
-        .await
-        .context("Failed to create cron manager")?;
+    let cron_manager = facade.create_cron_manager(service).await?;
 
     // Add schedules
     for schedule in cron_config.schedules {
@@ -198,50 +181,6 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
     Ok(())
 }
 
-/// Parses a program list file.
-///
-/// # Arguments
-///
-/// * `path` - Path to the program list file.
-///
-/// # Errors
-///
-/// Returns an error if the file cannot be read or parsed.
-fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read program list: {}", path.display()))?;
-
-    let mut programs = Vec::new();
-
-    for (line_num, line) in content.lines().enumerate() {
-        let line = line.trim();
-
-        // Skip empty lines and comments
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-
-        // Parse format: "title|url|output_path"
-        let parts: Vec<&str> = line.split('|').collect();
-        if parts.len() != 3 {
-            error!("Invalid format on line {}: {}", line_num + 1, line);
-            continue;
-        }
-
-        let title = parts[0].to_string();
-        let url = parts[1].to_string();
-        let output_path = PathBuf::from(parts[2]);
-
-        programs.push(Program {
-            title,
-            url,
-            output_path,
-        });
-    }
-
-    Ok(programs)
-}
-
 /// Loads cron configuration from a TOML file.
 ///
 /// # Arguments
@@ -251,11 +190,11 @@ fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
 /// # Errors
 ///
 /// Returns an error if the file cannot be read or parsed.
-fn load_cron_config(path: &PathBuf) -> Result<record_lib::config::CronConfig> {
+fn load_cron_config(path: &PathBuf) -> Result<CronConfig> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read cron config: {}", path.display()))?;
 
-    let config: record_lib::config::CronConfig = toml::from_str(&content)
+    let config: CronConfig = toml::from_str(&content)
         .with_context(|| format!("Failed to parse cron config: {}", path.display()))?;
 
     Ok(config)

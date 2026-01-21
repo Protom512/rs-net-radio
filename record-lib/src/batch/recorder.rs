@@ -8,7 +8,8 @@ use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
-use crate::domain::service::{Program, RecordService};
+use crate::domain::service::Program;
+use crate::domain::service::RecordService;
 use crate::utils::RecordError;
 
 /// Batch recorder for parallel recording tasks.
@@ -94,7 +95,7 @@ impl BatchRecorder {
                     Ok(p) => p,
                     Err(e) => {
                         return Err((
-                            program.title.clone(),
+                            program.title.into(),
                             format!("Failed to acquire semaphore: {e}"),
                         ))
                     }
@@ -114,8 +115,8 @@ impl BatchRecorder {
                     Self::report_progress(successes, total);
                 }
                 Ok(Err((title, err))) => {
-                    failures.push((title.clone(), err));
                     error!("Recording failed: {}", title);
+                    failures.push((title, err));
                 }
                 Err(e) => {
                     error!("Task panicked: {}", e);
@@ -168,10 +169,10 @@ impl BatchRecorder {
         loop {
             attempts += 1;
 
-            match service.record(&url, &output_path).await {
+            match service.record(url.as_str(), output_path.as_path()).await {
                 Ok(_) => {
                     info!("Recording successful: {}", title);
-                    return Ok(title);
+                    return Ok(title.into());
                 }
                 Err(e) if attempts <= retry_count => {
                     warn!(
@@ -186,7 +187,7 @@ impl BatchRecorder {
                         "Recording failed after {} attempts for {}: {}",
                         attempts, title, e
                     );
-                    return Err((title, e.to_string()));
+                    return Err((title.to_string(), e.to_string()));
                 }
             }
         }
@@ -340,14 +341,14 @@ mod tests {
 
         let programs = vec![
             Program {
-                title: "Program 1".to_string(),
-                url: "http://example.com/1".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+                title: "Program 1".into(),
+                url: "http://example.com/1".into(),
+                output_path: "/tmp/1.m4a".into(),
             },
             Program {
-                title: "Program 2".to_string(),
-                url: "http://example.com/2".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+                title: "Program 2".into(),
+                url: "http://example.com/2".into(),
+                output_path: "/tmp/2.m4a".into(),
             },
         ];
 
@@ -384,19 +385,19 @@ mod tests {
 
         let programs = vec![
             Program {
-                title: "Program A".to_string(),
-                url: "http://example.com/a".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/a.m4a"),
+                title: "Program A".into(),
+                url: "http://example.com/a".into(),
+                output_path: "/tmp/a.m4a".into(),
             },
             Program {
-                title: "Program B".to_string(),
-                url: "http://example.com/b".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/b.m4a"),
+                title: "Program B".into(),
+                url: "http://example.com/b".into(),
+                output_path: "/tmp/b.m4a".into(),
             },
             Program {
-                title: "Program C".to_string(),
-                url: "http://example.com/c".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/c.m4a"),
+                title: "Program C".into(),
+                url: "http://example.com/c".into(),
+                output_path: "/tmp/c.m4a".into(),
             },
         ];
 
@@ -436,14 +437,14 @@ mod tests {
 
         let programs = vec![
             Program {
-                title: "Failing Program 1".to_string(),
-                url: "http://example.com/fail1".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/fail1.m4a"),
+                title: "Failing Program 1".into(),
+                url: "http://example.com/fail1".into(),
+                output_path: "/tmp/fail1.m4a".into(),
             },
             Program {
-                title: "Failing Program 2".to_string(),
-                url: "http://example.com/fail2".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/fail2.m4a"),
+                title: "Failing Program 2".into(),
+                url: "http://example.com/fail2".into(),
+                output_path: "/tmp/fail2.m4a".into(),
             },
         ];
 
@@ -472,9 +473,9 @@ mod tests {
         let service = Arc::new(MockRecordService);
 
         let programs = vec![Program {
-            title: "Program 1".to_string(),
-            url: "http://example.com/1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            title: "Program 1".into(),
+            url: "http://example.com/1".into(),
+            output_path: "/tmp/1.m4a".into(),
         }];
 
         let start = std::time::Instant::now();
@@ -498,9 +499,9 @@ mod tests {
         let service = Arc::new(MockRecordService);
 
         let programs = vec![Program {
-            title: "Success Program".to_string(),
-            url: "http://example.com/success".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/success.m4a"),
+            title: "Success Program".into(),
+            url: "http://example.com/success".into(),
+            output_path: "/tmp/success.m4a".into(),
         }];
 
         let summary = recorder
@@ -560,14 +561,14 @@ mod tests {
 
         let programs = vec![
             Program {
-                title: "Success Program".to_string(),
-                url: "http://example.com/success".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/success.m4a"),
+                title: "Success Program".into(),
+                url: "http://example.com/success".into(),
+                output_path: "/tmp/success.m4a".into(),
             },
             Program {
-                title: "Failing Program".to_string(),
-                url: "http://example.com/fail".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/fail.m4a"),
+                title: "Failing Program".into(),
+                url: "http://example.com/fail".into(),
+                output_path: "/tmp/fail.m4a".into(),
             },
         ];
 
@@ -605,19 +606,19 @@ mod tests {
 
         let programs = vec![
             Program {
-                title: "Program 1".to_string(),
-                url: "http://example.com/1".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+                title: "Program 1".into(),
+                url: "http://example.com/1".into(),
+                output_path: "/tmp/1.m4a".into(),
             },
             Program {
-                title: "Program 2".to_string(),
-                url: "http://example.com/2".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+                title: "Program 2".into(),
+                url: "http://example.com/2".into(),
+                output_path: "/tmp/2.m4a".into(),
             },
             Program {
-                title: "Program 3".to_string(),
-                url: "http://example.com/3".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/3.m4a"),
+                title: "Program 3".into(),
+                url: "http://example.com/3".into(),
+                output_path: "/tmp/3.m4a".into(),
             },
         ];
 
