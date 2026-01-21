@@ -15,6 +15,68 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, warn};
 
+/// Trait for memory monitoring during streaming operations.
+///
+/// This trait abstracts memory monitoring functionality, allowing
+/// different implementations and enabling easier testing.
+pub trait MemoryMonitorTrait: Send + Sync {
+    /// Checks if the current memory usage exceeds the limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the memory limit is exceeded.
+    fn check_memory_limit(&self) -> Result<()>;
+
+    /// Updates the current memory usage.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - Number of bytes to add to current usage.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the update would exceed the memory limit.
+    fn update_usage(&self, bytes: usize) -> Result<()>;
+
+    /// Gets the current memory usage statistics.
+    fn get_stats(&self) -> MemoryStats;
+
+    /// Detects potential memory leaks by comparing current usage with previous snapshots.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - No leak detected
+    /// * `Err(String)` - Potential leak detected with details
+    fn detect_potential_leak(&self) -> Result<(), String>;
+
+    /// Creates a boxed trait object from this reference.
+    fn into_arc(self: Arc<Self>) -> Arc<dyn MemoryMonitorTrait>
+    where
+        Self: Sized + 'static,
+    {
+        self as Arc<dyn MemoryMonitorTrait>
+    }
+}
+
+// Implement the trait for MemoryMonitor
+impl MemoryMonitorTrait for MemoryMonitor {
+    fn check_memory_limit(&self) -> Result<()> {
+        self.check_memory_limit()
+    }
+
+    fn update_usage(&self, bytes: usize) -> Result<()> {
+        self.update_usage(bytes)
+    }
+
+    fn get_stats(&self) -> MemoryStats {
+        self.get_stats()
+    }
+
+    fn detect_potential_leak(&self) -> Result<(), String> {
+        self.detect_potential_leak()
+    }
+}
+
 /// Configuration for streaming recording.
 #[derive(Clone)]
 pub struct StreamingConfig {
@@ -59,12 +121,12 @@ pub async fn record_streaming(
     );
 
     // Initialize memory monitor
-    let memory_monitor = MemoryMonitor::new(config.memory_limit_bytes);
+    let memory_monitor = Arc::new(MemoryMonitor::new(config.memory_limit_bytes));
     memory_monitor.start()?;
 
     // Create chunk processor
     let chunk_processor =
-        ChunkProcessor::new(output_path, config.chunk_size, Arc::new(memory_monitor));
+        ChunkProcessor::new(output_path, config.chunk_size, memory_monitor.clone());
 
     // Perform the recording
     let stats = chunk_processor

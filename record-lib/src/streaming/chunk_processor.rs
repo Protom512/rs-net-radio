@@ -19,7 +19,7 @@ use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::{debug, error, info, warn};
 
-use super::memory_monitor::{MemoryMonitor, MemoryStats};
+use super::{memory_monitor::MemoryStats, MemoryMonitorTrait};
 
 /// Default chunk size for streaming downloads (4KB).
 /// This size is optimal for disk I/O and memory efficiency.
@@ -34,8 +34,8 @@ pub struct ChunkProcessor {
     output_path: std::path::PathBuf,
     /// Chunk size for processing.
     chunk_size: usize,
-    /// Memory monitor for tracking usage.
-    memory_monitor: Arc<MemoryMonitor>,
+    /// Memory monitor for tracking usage (abstracted via trait).
+    memory_monitor: Arc<dyn MemoryMonitorTrait>,
 }
 
 impl ChunkProcessor {
@@ -45,9 +45,9 @@ impl ChunkProcessor {
     ///
     /// * `output_path` - Path where the audio will be saved.
     /// * `chunk_size` - Size of chunks for processing.
-    /// * `memory_monitor` - Memory monitor for tracking usage.
+    /// * `memory_monitor` - Memory monitor for tracking usage (abstracted via trait).
     #[must_use]
-    pub fn new(output_path: &Path, chunk_size: usize, memory_monitor: Arc<MemoryMonitor>) -> Self {
+    pub fn new(output_path: &Path, chunk_size: usize, memory_monitor: Arc<dyn MemoryMonitorTrait>) -> Self {
         Self {
             output_path: output_path.to_path_buf(),
             chunk_size,
@@ -306,6 +306,7 @@ impl ChunkProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::memory_monitor::MemoryMonitor;
     use futures_util::io::Cursor;
     use tokio::io::AsyncReadExt;
 

@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use std::path::Path;
 
 use crate::domain::metadata::RecordingMetadata;
+use crate::domain::types::{OutputPath, ProgramTitle, StreamingUrl};
 use crate::utils::RecordError;
 
 /// Trait for recording services.
@@ -63,10 +64,10 @@ pub trait RecordService: Send + Sync {
         let mut failures = Vec::new();
 
         for program in programs {
-            match self.record(&program.url, &program.output_path).await {
+            match self.record(program.url.as_str(), program.output_path.as_path()).await {
                 Ok(_) => successes += 1,
                 Err(e) => {
-                    failures.push((program.title, e.to_string()));
+                    failures.push((program.title.into(), e.to_string()));
                 }
             }
         }
@@ -80,16 +81,18 @@ pub trait RecordService: Send + Sync {
 }
 
 /// A program to be recorded.
+///
+/// Uses newtype pattern for type safety and to prevent mixing similar values.
 #[derive(Debug, Clone)]
 pub struct Program {
     /// Program title or name.
-    pub title: String,
+    pub title: ProgramTitle,
 
     /// Stream URL.
-    pub url: String,
+    pub url: StreamingUrl,
 
     /// Output file path.
-    pub output_path: std::path::PathBuf,
+    pub output_path: OutputPath,
 }
 
 /// Summary of a batch recording operation.
@@ -135,14 +138,14 @@ mod tests {
         let service = Arc::new(MockRecordService);
         let programs = vec![
             Program {
-                title: "Program 1".to_string(),
-                url: "http://example.com/1".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+                title: "Program 1".into(),
+                url: "http://example.com/1".into(),
+                output_path: "/tmp/1.m4a".into(),
             },
             Program {
-                title: "Program 2".to_string(),
-                url: "http://example.com/2".to_string(),
-                output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+                title: "Program 2".into(),
+                url: "http://example.com/2".into(),
+                output_path: "/tmp/2.m4a".into(),
             },
         ];
 
