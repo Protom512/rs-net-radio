@@ -47,7 +47,11 @@ impl ChunkProcessor {
     /// * `chunk_size` - Size of chunks for processing.
     /// * `memory_monitor` - Memory monitor for tracking usage (abstracted via trait).
     #[must_use]
-    pub fn new(output_path: &Path, chunk_size: usize, memory_monitor: Arc<dyn MemoryMonitorTrait>) -> Self {
+    pub fn new(
+        output_path: &Path,
+        chunk_size: usize,
+        memory_monitor: Arc<dyn MemoryMonitorTrait>,
+    ) -> Self {
         Self {
             output_path: output_path.to_path_buf(),
             chunk_size,
@@ -305,8 +309,8 @@ impl ChunkProcessor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::memory_monitor::MemoryMonitor;
+    use super::*;
     use futures_util::io::Cursor;
     use tokio::io::AsyncReadExt;
 

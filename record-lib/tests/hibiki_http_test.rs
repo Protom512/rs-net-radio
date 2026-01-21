@@ -85,7 +85,7 @@ fn test_http_error_messages_describe_the_problem() {
     let cases = [
         (403, "authentication"),
         (429, "rate limit"),
-        (404, "not found"),  // lowercase for case-insensitive match
+        (404, "not found"), // lowercase for case-insensitive match
     ];
 
     for (status, keyword) in cases {
@@ -112,5 +112,8 @@ fn test_errors_are_distinguishable() {
     let http_msg = format!("{http_err}");
     let html_msg = format!("{html_err}");
 
-    assert_ne!(http_msg, html_msg, "Different error types should produce different messages");
+    assert_ne!(
+        http_msg, html_msg,
+        "Different error types should produce different messages"
+    );
 }

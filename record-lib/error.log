@@ -1,0 +1,98 @@
+[2026-01-21 06:14:42.012] ERROR: Test context - test file not found
+[2026-01-21 20:55:30.648] ERROR: Test context - test file not found
+  Stack trace:
+   0: std::backtrace_rs::backtrace::win64::trace
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\..\..\backtrace\src\backtrace\win64.rs:85
+   1: std::backtrace_rs::backtrace::trace_unsynchronized
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\..\..\backtrace\src\backtrace\mod.rs:66
+   2: std::backtrace::Backtrace::create
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\backtrace.rs:331
+   3: std::backtrace::Backtrace::capture
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\backtrace.rs:296
+   4: record_lib::logging::log_error_with_context<std::io::error::Error>
+             at .\src\logging\mod.rs:226
+   5: record_lib::logging::tests::test_log_error_context
+             at .\src\logging\mod.rs:338
+   6: record_lib::logging::tests::test_log_error_context::closure$0
+             at .\src\logging\mod.rs:336
+   7: core::ops::function::FnOnce::call_once<record_lib::logging::tests::test_log_error_context::closure_env$0,tuple$<> >
+             at C:\Users\black\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib\rustlib\src\rust\library\core\src\ops\function.rs:250
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\core\src\ops\function.rs:250
+   9: test::__rust_begin_short_backtrace<enum2$<core::result::Result<tuple$<>,alloc::string::String> >,enum2$<core::result::Result<tuple$<>,alloc::string::String> > (*)()>
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\test\src\lib.rs:663
+  10: test::run_test_in_process
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\test\src\lib.rs:686
+  11: test::run_test::closure$0
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\test\src\lib.rs:607
+  12: test::run_test::closure$1
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\test\src\lib.rs:637
+  13: std::sys::backtrace::__rust_begin_short_backtrace<test::run_test::closure_env$1,tuple$<> >
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\sys\backtrace.rs:158
+  14: core::ops::function::FnOnce::call_once<std::thread::impl$0::spawn_unchecked_::closure_env$1<test::run_test::closure_env$1,tuple$<> >,tuple$<> >
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\core\src\ops\function.rs:250
+  15: alloc::boxed::impl$29::call_once
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\alloc\src\boxed.rs:2005
+  16: alloc::boxed::impl$29::call_once
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\alloc\src\boxed.rs:2005
+  17: std::sys::thread::windows::impl$0::new::thread_start
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\sys\thread\windows.rs:60
+  18: BaseThreadInitThunk
+  19: RtlUserThreadStart
+
+[2026-01-21 20:55:57.381] ERROR: Test context - test file not found
+  Stack trace:
+   0: std::backtrace_rs::backtrace::win64::trace
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\..\..\backtrace\src\backtrace\win64.rs:85
+   1: std::backtrace_rs::backtrace::trace_unsynchronized
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\..\..\backtrace\src\backtrace\mod.rs:66
+   2: std::backtrace::Backtrace::create
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\backtrace.rs:331
+   3: std::backtrace::Backtrace::capture
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\backtrace.rs:296
+   4: record_lib::logging::log_error_with_context<std::io::error::Error>
+             at .\src\logging\mod.rs:226
+   5: record_lib::logging::tests::test_log_error_context
+             at .\src\logging\mod.rs:338
+   6: record_lib::logging::tests::test_log_error_context::closure$0
+             at .\src\logging\mod.rs:336
+   7: core::ops::function::FnOnce::call_once<record_lib::logging::tests::test_log_error_context::closure_env$0,tuple$<> >
+             at C:\Users\black\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib\rustlib\src\rust\library\core\src\ops\function.rs:250
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\core\src\ops\function.rs:250
+   9: test::__rust_begin_short_backtrace<enum2$<core::result::Result<tuple$<>,alloc::string::String> >,enum2$<core::result::Result<tuple$<>,alloc::string::String> > (*)()>
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\test\src\lib.rs:663
+  10: test::run_test_in_process
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\test\src\lib.rs:686
+  11: test::run_test::closure$0
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\test\src\lib.rs:607
+  12: test::run_test::closure$1
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\test\src\lib.rs:637
+  13: std::sys::backtrace::__rust_begin_short_backtrace<test::run_test::closure_env$1,tuple$<> >
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\sys\backtrace.rs:158
+  14: core::ops::function::FnOnce::call_once<std::thread::impl$0::spawn_unchecked_::closure_env$1<test::run_test::closure_env$1,tuple$<> >,tuple$<> >
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\core\src\ops\function.rs:250
+  15: alloc::boxed::impl$29::call_once
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\alloc\src\boxed.rs:2005
+  16: alloc::boxed::impl$29::call_once
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\alloc\src\boxed.rs:2005
+  17: std::sys::thread::windows::impl$0::new::thread_start
+             at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library\std\src\sys\thread\windows.rs:60
+  18: BaseThreadInitThunk
+  19: RtlUserThreadStart
+
+[2026-01-21 21:31:35.694] ERROR: Test context - test file not found
+  Stack trace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: BaseThreadInitThunk
+  12: RtlUserThreadStart

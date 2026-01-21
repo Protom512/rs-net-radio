@@ -108,19 +108,19 @@ async fn test_batch_recorder_parallel_execution() {
 
     let programs = vec![
         Program {
-            title: "Program 1".to_string(),
-            url: "http://example.com/1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            title: "Program 1".into(),
+            url: "http://example.com/1".into(),
+            output_path: "/tmp/1.m4a".into(),
         },
         Program {
-            title: "Program 2".to_string(),
-            url: "http://example.com/2".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+            title: "Program 2".into(),
+            url: "http://example.com/2".into(),
+            output_path: "/tmp/2.m4a".into(),
         },
         Program {
-            title: "Program 3".to_string(),
-            url: "http://example.com/3".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/3.m4a"),
+            title: "Program 3".into(),
+            url: "http://example.com/3".into(),
+            output_path: "/tmp/3.m4a".into(),
         },
     ];
 
@@ -150,24 +150,24 @@ async fn test_batch_recorder_concurrency_limit() {
 
     let programs = vec![
         Program {
-            title: "Program 1".to_string(),
-            url: "http://example.com/1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            title: "Program 1".into(),
+            url: "http://example.com/1".into(),
+            output_path: "/tmp/1.m4a".into(),
         },
         Program {
-            title: "Program 2".to_string(),
-            url: "http://example.com/2".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+            title: "Program 2".into(),
+            url: "http://example.com/2".into(),
+            output_path: "/tmp/2.m4a".into(),
         },
         Program {
-            title: "Program 3".to_string(),
-            url: "http://example.com/3".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/3.m4a"),
+            title: "Program 3".into(),
+            url: "http://example.com/3".into(),
+            output_path: "/tmp/3.m4a".into(),
         },
         Program {
-            title: "Program 4".to_string(),
-            url: "http://example.com/4".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/4.m4a"),
+            title: "Program 4".into(),
+            url: "http://example.com/4".into(),
+            output_path: "/tmp/4.m4a".into(),
         },
     ];
 
@@ -204,24 +204,24 @@ async fn test_batch_recorder_with_failures() {
 
     let programs = vec![
         Program {
-            title: "Program 1".to_string(),
-            url: "http://example.com/1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            title: "Program 1".into(),
+            url: "http://example.com/1".into(),
+            output_path: "/tmp/1.m4a".into(),
         },
         Program {
-            title: "Program 2".to_string(),
-            url: "http://example.com/2".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+            title: "Program 2".into(),
+            url: "http://example.com/2".into(),
+            output_path: "/tmp/2.m4a".into(),
         },
         Program {
-            title: "Program 3".to_string(),
-            url: "http://example.com/3".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/3.m4a"),
+            title: "Program 3".into(),
+            url: "http://example.com/3".into(),
+            output_path: "/tmp/3.m4a".into(),
         },
         Program {
-            title: "Program 4".to_string(),
-            url: "http://example.com/4".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/4.m4a"),
+            title: "Program 4".into(),
+            url: "http://example.com/4".into(),
+            output_path: "/tmp/4.m4a".into(),
         },
     ];
 
@@ -268,19 +268,19 @@ async fn test_batch_recorder_summary_statistics() {
 
     let programs = vec![
         Program {
-            title: "Short".to_string(),
-            url: "http://a.com/1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            title: "Short".into(),
+            url: "http://a.com/1".into(),
+            output_path: "/tmp/1.m4a".into(),
         },
         Program {
-            title: "MediumLength".to_string(),
-            url: "http://medium.com/2".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+            title: "MediumLength".into(),
+            url: "http://medium.com/2".into(),
+            output_path: "/tmp/2.m4a".into(),
         },
         Program {
-            title: "VeryLongTitle".to_string(),
-            url: "http://verylong.com/3".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/3.m4a"),
+            title: "VeryLongTitle".into(),
+            url: "http://verylong.com/3".into(),
+            output_path: "/tmp/3.m4a".into(),
         },
     ];
 
@@ -316,14 +316,14 @@ async fn test_batch_recorder_retry_logic() {
 
     let programs = vec![
         Program {
-            title: "Failing Program".to_string(),
-            url: "http://example.com/1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            title: "Failing Program".into(),
+            url: "http://example.com/1".into(),
+            output_path: "/tmp/1.m4a".into(),
         },
         Program {
-            title: "Success Program".to_string(),
-            url: "http://example.com/2".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+            title: "Success Program".into(),
+            url: "http://example.com/2".into(),
+            output_path: "/tmp/2.m4a".into(),
         },
     ];
 
@@ -347,9 +347,9 @@ async fn test_batch_recorder_timeout() {
     });
 
     let programs = vec![Program {
-        title: "Slow Program".to_string(),
-        url: "http://example.com/1".to_string(),
-        output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+        title: "Slow Program".into(),
+        url: "http://example.com/1".into(),
+        output_path: "/tmp/1.m4a".into(),
     }];
 
     // This should take more than the timeout, but the test should still complete
@@ -380,9 +380,9 @@ async fn test_batch_recorder_large_batch() {
     // Create 20 programs
     let programs: Vec<Program> = (0..20)
         .map(|i| Program {
-            title: format!("Program {i}"),
-            url: format!("http://example.com/{i}"),
-            output_path: std::path::PathBuf::from(format!("/tmp/{i}.m4a")),
+            title: format!("Program {i}").into(),
+            url: format!("http://example.com/{i}").into(),
+            output_path: format!("/tmp/{i}.m4a").as_str().into(),
         })
         .collect();
 
@@ -416,19 +416,19 @@ async fn test_batch_recorder_all_failures() {
 
     let programs = vec![
         Program {
-            title: "Program 1".to_string(),
-            url: "http://example.com/1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            title: "Program 1".into(),
+            url: "http://example.com/1".into(),
+            output_path: "/tmp/1.m4a".into(),
         },
         Program {
-            title: "Program 2".to_string(),
-            url: "http://example.com/2".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+            title: "Program 2".into(),
+            url: "http://example.com/2".into(),
+            output_path: "/tmp/2.m4a".into(),
         },
         Program {
-            title: "Program 3".to_string(),
-            url: "http://example.com/3".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/3.m4a"),
+            title: "Program 3".into(),
+            url: "http://example.com/3".into(),
+            output_path: "/tmp/3.m4a".into(),
         },
     ];
 
@@ -460,19 +460,19 @@ async fn test_batch_recorder_partial_success() {
 
     let programs = vec![
         Program {
-            title: "Success 1".to_string(),
-            url: "http://example.com/1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/1.m4a"),
+            title: "Success 1".into(),
+            url: "http://example.com/1".into(),
+            output_path: "/tmp/1.m4a".into(),
         },
         Program {
-            title: "Failure 1".to_string(),
-            url: "http://example.com/2".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/2.m4a"),
+            title: "Failure 1".into(),
+            url: "http://example.com/2".into(),
+            output_path: "/tmp/2.m4a".into(),
         },
         Program {
-            title: "Success 2".to_string(),
-            url: "http://example.com/3".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/3.m4a"),
+            title: "Success 2".into(),
+            url: "http://example.com/3".into(),
+            output_path: "/tmp/3.m4a".into(),
         },
     ];
 
@@ -500,27 +500,27 @@ async fn test_batch_recorder_concurrent_batches() {
 
     let programs1 = vec![
         Program {
-            title: "Batch1-1".to_string(),
-            url: "http://example.com/b1-1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/b1-1.m4a"),
+            title: "Batch1-1".into(),
+            url: "http://example.com/b1-1".into(),
+            output_path: "/tmp/b1-1.m4a".into(),
         },
         Program {
-            title: "Batch1-2".to_string(),
-            url: "http://example.com/b1-2".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/b1-2.m4a"),
+            title: "Batch1-2".into(),
+            url: "http://example.com/b1-2".into(),
+            output_path: "/tmp/b1-2.m4a".into(),
         },
     ];
 
     let programs2 = vec![
         Program {
-            title: "Batch2-1".to_string(),
-            url: "http://example.com/b2-1".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/b2-1.m4a"),
+            title: "Batch2-1".into(),
+            url: "http://example.com/b2-1".into(),
+            output_path: "/tmp/b2-1.m4a".into(),
         },
         Program {
-            title: "Batch2-2".to_string(),
-            url: "http://example.com/b2-2".to_string(),
-            output_path: std::path::PathBuf::from("/tmp/b2-2.m4a"),
+            title: "Batch2-2".into(),
+            url: "http://example.com/b2-2".into(),
+            output_path: "/tmp/b2-2.m4a".into(),
         },
     ];
 
