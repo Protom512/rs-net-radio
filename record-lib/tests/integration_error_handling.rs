@@ -28,7 +28,8 @@ fn test_fatal_error_classification() {
     let auth_error = RecordingError::http_status(403, "https://hibiki-radio.jp/test", "Forbidden");
     verify_error_classification(&auth_error, ErrorSeverity::Fatal);
 
-    let rate_limit = RecordingError::http_status(429, "https://hibiki-radio.jp/test", "Rate limited");
+    let rate_limit =
+        RecordingError::http_status(429, "https://hibiki-radio.jp/test", "Rate limited");
     verify_error_classification(&rate_limit, ErrorSeverity::Fatal);
 
     // HTML parsing errors are fatal (site structure changed)
@@ -122,10 +123,7 @@ fn test_error_messages_are_displayable() {
 
     for error in &errors {
         let msg = format!("{error}");
-        assert!(
-            !msg.is_empty(),
-            "Error message should not be empty"
-        );
+        assert!(!msg.is_empty(), "Error message should not be empty");
         assert!(
             msg.len() > 10,
             "Error message should be descriptive: {}",
@@ -159,7 +157,10 @@ fn test_errors_are_distinguishable() {
     let msg_404 = format!("{error_404}");
     let msg_html = format!("{error_html}");
 
-    assert_ne!(msg_403, msg_404, "Different status codes should produce different messages");
+    assert_ne!(
+        msg_403, msg_404,
+        "Different status codes should produce different messages"
+    );
     assert_ne!(
         msg_403, msg_html,
         "Different error types should produce different messages"
@@ -181,28 +182,37 @@ fn test_error_context_in_messages() {
         "Error should include URL context"
     );
     // Status code should be present
-    assert!(error_string.contains("403"), "Error should include status code");
+    assert!(
+        error_string.contains("403"),
+        "Error should include status code"
+    );
 }
 
 #[test]
 fn test_batch_processing_errors() {
     // Simulate batch processing with various error types
     let errors = [
-        ("Program 1", RecordingError::http_status(500, "https://example.com/prog1", "Server error")),
-        ("Program 2", RecordingError::NetworkError("Timeout".to_string())),
-        ("Program 3", RecordingError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "File not found",
-        ))),
+        (
+            "Program 1",
+            RecordingError::http_status(500, "https://example.com/prog1", "Server error"),
+        ),
+        (
+            "Program 2",
+            RecordingError::NetworkError("Timeout".to_string()),
+        ),
+        (
+            "Program 3",
+            RecordingError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "File not found",
+            )),
+        ),
     ];
 
     // All errors should be displayable (for logging)
     for (_name, error) in &errors {
         let msg = format!("{error}");
-        assert!(
-            !msg.is_empty(),
-            "Error should produce a message",
-        );
+        assert!(!msg.is_empty(), "Error should produce a message",);
     }
 
     // Count severity types
@@ -218,7 +228,9 @@ fn test_errors_work_in_async_context() {
     // Verify errors can be used in async contexts (require Send/Sync)
     use std::sync::Arc;
 
-    let error = Arc::new(RecordingError::NetworkError("Async network error".to_string()));
+    let error = Arc::new(RecordingError::NetworkError(
+        "Async network error".to_string(),
+    ));
 
     // Should be cloneable and shareable across threads
     let error_clone = Arc::clone(&error);
