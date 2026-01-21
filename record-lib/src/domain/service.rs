@@ -64,7 +64,10 @@ pub trait RecordService: Send + Sync {
         let mut failures = Vec::new();
 
         for program in programs {
-            match self.record(program.url.as_str(), program.output_path.as_path()).await {
+            match self
+                .record(program.url.as_str(), program.output_path.as_path())
+                .await
+            {
                 Ok(_) => successes += 1,
                 Err(e) => {
                     failures.push((program.title.into(), e.to_string()));

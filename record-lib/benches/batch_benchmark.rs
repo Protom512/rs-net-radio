@@ -76,19 +76,23 @@ fn bench_parallel_jobs(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("parallel_jobs");
     for max_jobs in [1, 2, 3, 5, 10].iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(max_jobs), max_jobs, |b, &max_jobs| {
-            b.iter(|| {
-                rt.block_on(async {
-                    let recorder = BatchRecorder::new(max_jobs, 1, Duration::from_secs(30));
-                    let programs = programs.clone();
-                    let service = Arc::clone(&service);
-                    recorder
-                        .record_batch(black_box(programs), service)
-                        .await
-                        .unwrap()
-                })
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(max_jobs),
+            max_jobs,
+            |b, &max_jobs| {
+                b.iter(|| {
+                    rt.block_on(async {
+                        let recorder = BatchRecorder::new(max_jobs, 1, Duration::from_secs(30));
+                        let programs = programs.clone();
+                        let service = Arc::clone(&service);
+                        recorder
+                            .record_batch(black_box(programs), service)
+                            .await
+                            .unwrap()
+                    })
+                });
+            },
+        );
     }
     group.finish();
 }

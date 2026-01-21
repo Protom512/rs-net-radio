@@ -301,6 +301,9 @@ mod tests {
         let recoverable_error =
             RecordingError::http_status(500, "https://example.com", "Internal Server Error");
         let exit_code = handle_recording_error(&recoverable_error);
-        assert_eq!(exit_code, None, "Recoverable error should not produce exit code");
+        assert_eq!(
+            exit_code, None,
+            "Recoverable error should not produce exit code"
+        );
     }
 }
