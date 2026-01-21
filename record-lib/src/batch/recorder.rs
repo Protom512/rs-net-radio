@@ -3,13 +3,13 @@
 //! This module implements the `BatchRecorder` which manages parallel recording
 //! of multiple programs with semaphore-based concurrency control.
 
+use crate::domain::service::{Program, RecordService};
+use crate::utils::RecordError;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
-
-use crate::domain::service::{Program, RecordService};
-use crate::utils::RecordError;
 
 /// Batch recorder for parallel recording tasks.
 ///
@@ -79,6 +79,16 @@ impl BatchRecorder {
         let semaphore = Arc::new(Semaphore::new(self.max_parallel_jobs));
         let mut tasks = tokio::task::JoinSet::new();
 
+        let progress_bar = ProgressBar::new(total as u64);
+        progress_bar.set_style(
+            ProgressStyle::default_bar()
+                .template(
+                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+                )
+                .unwrap()
+                .progress_chars("#>-"),
+        );
+
         info!(
             "Starting batch recording: {} programs, max parallel: {}",
             total, self.max_parallel_jobs
@@ -108,10 +118,10 @@ impl BatchRecorder {
         let mut failures = Vec::new();
 
         while let Some(result) = tasks.join_next().await {
+            progress_bar.inc(1);
             match result {
                 Ok(Ok(_title)) => {
                     successes += 1;
-                    Self::report_progress(successes, total);
                 }
                 Ok(Err((title, err))) => {
                     failures.push((title.clone(), err));
@@ -122,6 +132,7 @@ impl BatchRecorder {
                 }
             }
         }
+        progress_bar.finish_with_message("All recordings processed.");
 
         let duration = start_time.elapsed();
 
@@ -190,21 +201,6 @@ impl BatchRecorder {
                 }
             }
         }
-    }
-
-    /// Reports recording progress.
-    ///
-    /// # Arguments
-    ///
-    /// * `completed` - Number of completed recordings.
-    /// * `total` - Total number of recordings.
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "f64 precision is acceptable for percentage display"
-    )]
-    fn report_progress(completed: usize, total: usize) {
-        let progress = (completed as f64 / total as f64) * 100.0;
-        info!("Progress: {completed}/{total} {progress:.1}%");
     }
 }
 
