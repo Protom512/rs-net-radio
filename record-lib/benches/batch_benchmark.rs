@@ -5,8 +5,8 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use record_lib::batch::BatchRecorder;
-use record_lib::domain::service::{Program, RecordService};
 use record_lib::domain::metadata::RecordingMetadata;
+use record_lib::domain::service::{Program, RecordService};
 use record_lib::utils::RecordError;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -52,19 +52,23 @@ fn bench_batch_recording(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("batch_recording");
     for count in [1, 5, 10, 20, 50].iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, &count: &usize| {
-            b.iter(|| {
-                rt.block_on(async {
-                    let recorder = BatchRecorder::new(3, 1, Duration::from_secs(30));
-                    let programs = create_programs(count);
-                    let service = Arc::clone(&service);
-                    recorder
-                        .record_batch(black_box(programs), service)
-                        .await
-                        .unwrap()
-                })
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(count),
+            count,
+            |b, &count: &usize| {
+                b.iter(|| {
+                    rt.block_on(async {
+                        let recorder = BatchRecorder::new(3, 1, Duration::from_secs(30));
+                        let programs = create_programs(count);
+                        let service = Arc::clone(&service);
+                        recorder
+                            .record_batch(black_box(programs), service)
+                            .await
+                            .unwrap()
+                    })
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -77,19 +81,23 @@ fn bench_parallel_jobs(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("parallel_jobs");
     for max_jobs in [1, 2, 3, 5, 10].iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(max_jobs), max_jobs, |b, &max_jobs: &usize| {
-            b.iter(|| {
-                rt.block_on(async {
-                    let recorder = BatchRecorder::new(max_jobs, 1, Duration::from_secs(30));
-                    let programs = programs.clone();
-                    let service = Arc::clone(&service);
-                    recorder
-                        .record_batch(black_box(programs), service)
-                        .await
-                        .unwrap()
-                })
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(max_jobs),
+            max_jobs,
+            |b, &max_jobs: &usize| {
+                b.iter(|| {
+                    rt.block_on(async {
+                        let recorder = BatchRecorder::new(max_jobs, 1, Duration::from_secs(30));
+                        let programs = programs.clone();
+                        let service = Arc::clone(&service);
+                        recorder
+                            .record_batch(black_box(programs), service)
+                            .await
+                            .unwrap()
+                    })
+                });
+            },
+        );
     }
     group.finish();
 }
