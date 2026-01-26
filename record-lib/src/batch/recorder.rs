@@ -79,11 +79,11 @@ impl BatchRecorder {
         let semaphore = Arc::new(Semaphore::new(self.max_parallel_jobs));
         let mut tasks = tokio::task::JoinSet::new();
 
-        let progress_bar = ProgressBar::new(total as u64);
+        let progress_bar = ProgressBar::new(total as u64).with_message("Recording...");
         progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template(
-                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}",
                 )
                 .unwrap()
                 .progress_chars("#>-"),
@@ -132,7 +132,7 @@ impl BatchRecorder {
                 }
             }
         }
-        progress_bar.finish_with_message("All recordings processed.");
+        progress_bar.finish_with_message("Batch recording complete.");
 
         let duration = start_time.elapsed();
 
