@@ -233,6 +233,12 @@ impl BatchSummary {
         println!("バッチ録音サマリー");
         println!("{}", "=".repeat(60));
 
+        if self.total_count == 0 {
+            println!("\n録音対象の番組がありませんでした。");
+            println!("{}", "=".repeat(60));
+            return;
+        }
+
         // 基本統計
         println!("\n📊 基本統計:");
         println!("  総件数: {}", self.total_count);
@@ -665,7 +671,8 @@ mod tests {
         // Success rate should be 100% for empty batch
         assert!((summary.success_rate() - 100.0).abs() < 0.01);
 
-        // Test that print_summary works for empty batch
+        // Test that print_summary works for empty batch and doesn't panic.
+        // The new implementation prints a specific message and returns early.
         summary.print_summary();
     }
 }
