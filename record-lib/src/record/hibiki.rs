@@ -417,6 +417,7 @@ pub fn record() {
 
 /// 非同期で単一プログラムを処理
 async fn process_program_async(
+    client: &reqwest::Client,
     program: &HibikiJson,
     archive_base_path: &str,
 ) -> Result<(), String> {
@@ -426,7 +427,7 @@ async fn process_program_async(
         program.access_id
     );
 
-    let api_response = fetch_episode_async(&episode_url).await?;
+    let api_response = fetch_episode_async(client, &episode_url).await?;
     let episode = validate_episode(&api_response, program)?;
 
     let video = validate_video(episode, program)?;
@@ -436,7 +437,7 @@ async fn process_program_async(
         .to_string();
     info!("working path: {tmpdir}");
 
-    download_thumbnail_async(program, &tmpdir).await?;
+    download_thumbnail_async(client, program, &tmpdir).await?;
 
     let filename = generate_episode_filename(&program.name, program.latest_episode_name.as_deref());
     let output_path = format!("{archive_base_path}/{filename}");
@@ -448,7 +449,7 @@ async fn process_program_async(
         return Ok(());
     }
 
-    let url = get_streaming_url_async(video).await?;
+    let url = get_streaming_url_async(client, video).await?;
     debug!("title: {},url\"{}\"", program.name, url);
 
     record_program_async(
@@ -465,8 +466,11 @@ async fn process_program_async(
 }
 
 /// Fetches episode details asynchronously.
-async fn fetch_episode_async(episode_url: &str) -> Result<HibikiEpisode, String> {
-    let api_response = reqwest::Client::new()
+async fn fetch_episode_async(
+    client: &reqwest::Client,
+    episode_url: &str,
+) -> Result<HibikiEpisode, String> {
+    let api_response = client
         .get(episode_url)
         .header("Origin", "https://hibiki-radio.jp")
         .header("Referer", "https://hibiki-radio.jp/")
@@ -542,7 +546,11 @@ fn validate_video<'a>(
 }
 
 /// Downloads thumbnail image asynchronously.
-async fn download_thumbnail_async(program: &HibikiJson, tmpdir: &str) -> Result<(), String> {
+async fn download_thumbnail_async(
+    client: &reqwest::Client,
+    program: &HibikiJson,
+    tmpdir: &str,
+) -> Result<(), String> {
     let imagefile = format!("{tmpdir}/{}_thumb.jpg", sanitize_filename(&program.name));
     let mut img = std::fs::File::create(&imagefile)
         .map_err(|e| format!("Failed to create image file {imagefile}: {e}"))?;
@@ -550,7 +558,6 @@ async fn download_thumbnail_async(program: &HibikiJson, tmpdir: &str) -> Result<
     if let Some(ref n) = program.pc_image_url {
         let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
                          (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
-        let client = reqwest::Client::new();
         let mut response = client
             .get(n)
             .header("User-Agent", user_agent)
@@ -582,7 +589,10 @@ async fn download_thumbnail_async(program: &HibikiJson, tmpdir: &str) -> Result<
 }
 
 /// Gets streaming URL asynchronously.
-async fn get_streaming_url_async(video: &HibikiVideo) -> Result<String, String> {
+async fn get_streaming_url_async(
+    client: &reqwest::Client,
+    video: &HibikiVideo,
+) -> Result<String, String> {
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
                      (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
 
@@ -590,7 +600,7 @@ async fn get_streaming_url_async(video: &HibikiVideo) -> Result<String, String> 
         "https://vcms-api.hibiki-radio.jp/api/v1/videos/play_check?video_id={video_id}",
         video_id = video.id
     );
-    let playlist_response = reqwest::Client::new()
+    let playlist_response = client
         .get(&playlist_url)
         .header("Origin", "https://hibiki-radio.jp")
         .header("Referer", "https://hibiki-radio.jp/")
@@ -692,10 +702,13 @@ pub async fn record_parallel() {
 
     info!("Fetching program list from {programs_url}");
 
+    // Create a single client to be reused for all requests.
+    let client = reqwest::Client::new();
+
     // 非同期でプログラムリストを取得
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
                      (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
-    let response = reqwest::Client::new()
+    let response = client
         .get(&programs_url)
         .header("Origin", "https://hibiki-radio.jp")
         .header("Referer", "https://hibiki-radio.jp/")
@@ -743,11 +756,12 @@ pub async fn record_parallel() {
     for program in programs {
         let permit = semaphore.clone().acquire_owned().await.unwrap();
         let archive_path = archive_base_path.clone();
+        let client = client.clone();
 
         let task = tokio::spawn(async move {
             let _permit = permit; // タスク完了時に permit を解放
             info!("Processing program: {}", program.name);
-            match process_program_async(&program, &archive_path).await {
+            match process_program_async(&client, &program, &archive_path).await {
                 Ok(()) => {
                     info!("Successfully processed program: {}", program.name);
                 }
