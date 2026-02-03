@@ -76,7 +76,7 @@ pub struct HibikiJson {
 ///
 /// A `reqwest::Result` containing the API response.
 pub fn get_api(url: &str) -> Result<Response, RecordError> {
-    let client = crate::http::blocking_client();
+    let client = reqwest::blocking::Client::new();
 
     // Use modern User-Agent matching current Chrome browser
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
@@ -285,7 +285,7 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
     if let Some(ref n) = program.pc_image_url {
         let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
                          (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
-        let client = crate::http::blocking_client();
+        let client = reqwest::blocking::Client::new();
         match client.get(n).header("User-Agent", user_agent).send() {
             Ok(mut response) => {
                 if !response.status().is_success() {
@@ -702,8 +702,8 @@ pub async fn record_parallel() {
 
     info!("Fetching program list from {programs_url}");
 
-    // Use the shared client to benefit from connection pooling.
-    let client = crate::http::async_client();
+    // Create a single client to be reused for all requests.
+    let client = reqwest::Client::new();
 
     // 非同期でプログラムリストを取得
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \

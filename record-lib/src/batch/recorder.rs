@@ -5,6 +5,7 @@
 
 use crate::domain::service::{Program, RecordService};
 use crate::utils::RecordError;
+use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::sync::Arc;
 use std::time::Instant;
@@ -229,29 +230,28 @@ impl BatchSummary {
     /// This method displays a comprehensive summary of the batch recording operation,
     /// including success/failure counts, duration, and detailed failure information.
     pub fn print_summary(&self) {
-        const GREEN: &str = "\x1b[32m";
-        const RED: &str = "\x1b[31m";
-        const YELLOW: &str = "\x1b[33m";
-        const CYAN: &str = "\x1b[36m";
-        const BOLD: &str = "\x1b[1m";
-        const RESET: &str = "\x1b[0m";
-
-        println!("\n{}{}{}", CYAN, "=".repeat(60), RESET);
-        println!("{}バッチ録音サマリー{}", BOLD, RESET);
-        println!("{}{}{}", CYAN, "=".repeat(60), RESET);
+        println!("\n{}", "=".repeat(60).cyan());
+        println!("{}", "バッチ録音サマリー".bold());
+        println!("{}", "=".repeat(60).cyan());
 
         if self.total_count == 0 {
             println!("\n録音対象の番組がありませんでした。");
             println!("ヒント: 入力ファイルは '番組名|URL|保存先パス' の形式で記述してください。");
-            println!("{}{}{}", CYAN, "=".repeat(60), RESET);
+            println!("{}", "=".repeat(60).cyan());
             return;
         }
 
         // 基本統計
-        println!("\n📊 {}基本統計:{}", BOLD, RESET);
+        println!("\n📊 {}", "基本統計:".bold());
         println!("  総件数: {}", self.total_count);
-        println!("  成功: {}{} ✅{}", GREEN, self.success_count, RESET);
-        println!("  失敗: {}{} ❌{}", RED, self.failure_count, RESET);
+        println!(
+            "  成功: {} ✅",
+            self.success_count.to_string().green()
+        );
+        println!(
+            "  失敗: {} ❌",
+            self.failure_count.to_string().red()
+        );
 
         // 成功率
         #[expect(
@@ -264,7 +264,7 @@ impl BatchSummary {
         }
 
         // 処理時間
-        println!("\n⏱️  {}処理時間:{}", BOLD, RESET);
+        println!("\n⏱️  {}", "処理時間:".bold());
         println!("  総時間: {:.2}秒", self.duration.as_secs_f64());
         #[expect(
             clippy::cast_precision_loss,
@@ -277,25 +277,25 @@ impl BatchSummary {
 
         // 失敗詳細
         if !self.failures.is_empty() {
-            println!("\n❌ {}失敗詳細:{}", RED, RESET);
+            println!("\n❌ {}", "失敗詳細:".red());
             for (i, (title, error)) in self.failures.iter().enumerate() {
                 println!("  {}. {title}", i + 1);
-                println!("     {}エラー: {}{}", RED, error, RESET);
+                println!("     {}", format!("エラー: {error}").red());
             }
         }
 
-        println!("\n{}{}{}", CYAN, "=".repeat(60), RESET);
+        println!("\n{}", "=".repeat(60).cyan());
 
         // 終了ステータス
         if self.failure_count > 0 {
             println!(
-                "{}⚠️  警告: {}件の録音が失敗しました{}",
-                YELLOW, self.failure_count, RESET
+                "{}",
+                format!("⚠️  警告: {}件の録音が失敗しました", self.failure_count).yellow()
             );
         } else {
-            println!("{}✅ すべての録音が正常に完了しました{}", GREEN, RESET);
+            println!("{}", "✅ すべての録音が正常に完了しました".green());
         }
-        println!("{}{}{}", CYAN, "=".repeat(60), RESET);
+        println!("{}", "=".repeat(60).cyan());
     }
 
     /// Returns true if all recordings succeeded.

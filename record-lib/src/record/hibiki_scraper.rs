@@ -34,8 +34,10 @@ impl HibikiScraper {
     ///
     /// Returns an error if the HTTP client cannot be created.
     pub fn new() -> Result<Self, RecordError> {
-        // Use the shared client to benefit from connection pooling.
-        let client = crate::http::blocking_client().clone();
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(RecordError::Reqwest)?;
 
         Ok(Self {
             client,

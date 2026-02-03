@@ -71,29 +71,11 @@ impl record_lib::domain::service::RecordService for MockRecordService {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     // Initialize tracing
     init_tracing();
 
-    if let Err(e) = run().await {
-        eprintln!("Error: {}", e);
-        for cause in e.chain().skip(1) {
-            eprintln!("  Caused by: {}", cause);
-        }
-        std::process::exit(1);
-    }
-}
-
-/// Main execution logic.
-async fn run() -> Result<()> {
     let args = Args::parse();
-
-    // Check for required environment variables
-    std::env::var("RS_NET_ARCHIVE_PATH").context(
-        "Environment variable RS_NET_ARCHIVE_PATH is not set.\n\n\
-         Hint: Set it to the root directory where you want to save recordings.\n\
-         Example: export RS_NET_ARCHIVE_PATH=/path/to/archive",
-    )?;
 
     match args.command {
         Commands::Batch { input } => {
@@ -242,11 +224,7 @@ fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
         // Parse format: "title|url|output_path"
         let parts: Vec<&str> = line.split('|').collect();
         if parts.len() != 3 {
-            error!(
-                "Invalid format on line {}: {}. Expected format: title|url|output_path",
-                line_num + 1,
-                line
-            );
+            error!("Invalid format on line {}: {}", line_num + 1, line);
             continue;
         }
 

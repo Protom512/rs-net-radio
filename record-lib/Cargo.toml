@@ -10,6 +10,7 @@ backtrace = []
 
 [dependencies]
 indicatif = "0.17"
+colored = "2"
 anyhow = "1.0"
 async-trait = "0.1"
 base64 = "0.22"

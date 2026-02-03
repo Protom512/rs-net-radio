@@ -5,7 +5,6 @@ pub mod common;
 pub mod config;
 pub mod domain;
 pub mod error;
-pub mod http;
 pub mod logging;
 pub mod record;
 pub mod scheduler;
