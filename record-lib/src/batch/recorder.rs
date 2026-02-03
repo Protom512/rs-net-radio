@@ -244,14 +244,8 @@ impl BatchSummary {
         // 基本統計
         println!("\n📊 {}", "基本統計:".bold());
         println!("  総件数: {}", self.total_count);
-        println!(
-            "  成功: {} ✅",
-            self.success_count.to_string().green()
-        );
-        println!(
-            "  失敗: {} ❌",
-            self.failure_count.to_string().red()
-        );
+        println!("  成功: {} ✅", self.success_count.to_string().green());
+        println!("  失敗: {} ❌", self.failure_count.to_string().red());
 
         // 成功率
         #[expect(
