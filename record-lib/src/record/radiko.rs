@@ -17,7 +17,7 @@ use crate::{FfmpegCommand, FfmpegInput};
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone};
 use log::{debug, error, info};
-use reqwest::blocking::{Client, Response};
+use reqwest::blocking::Response;
 use serde::{Deserialize, Serialize};
 
 use fs_extra::file::CopyOptions;
@@ -303,7 +303,7 @@ impl RecordRadiko {
 
     fn auth1() -> Result<Response, RecordError> {
         // Changed signature
-        let client = Client::new();
+        let client = crate::http::blocking_client();
         let url = "https://radiko.jp/v2/api/auth1";
         Ok(client
             .get(url)
@@ -316,7 +316,7 @@ impl RecordRadiko {
     }
     fn auth2(token: &str, partial_key: String) -> Result<Response, RecordError> {
         // Changed signature
-        let client = Client::new();
+        let client = crate::http::blocking_client();
         let url = "https://radiko.jp/v2/api/auth2";
         Ok(client
             .get(url)
@@ -399,7 +399,7 @@ impl ChStreamingUrl {
     /// A `ChStreamingUrl` struct containing streaming URL information.
     #[must_use]
     pub fn init(ch: &str) -> ChStreamingUrl {
-        let client = Client::new();
+        let client = crate::http::blocking_client();
         let url = format!("http://radiko.jp/v2/station/stream_smh_multi/{ch}.xml");
         debug!("{:#?}", &url);
         match client.get(url).send() {
@@ -434,7 +434,7 @@ impl ChStreamingUrl {
 /// A `reqwest::blocking::Response` containing the program DOM.
 #[must_use]
 pub fn get_program_dom(ch: &str) -> Response {
-    let client = Client::new();
+    let client = crate::http::blocking_client();
     let url = format!("http://radiko.jp/v2/api/program/station/weekly?station_id={ch}");
     info!("{:#?}", &url);
     match client.get(url).send() {

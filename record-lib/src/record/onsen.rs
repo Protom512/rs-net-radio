@@ -160,7 +160,7 @@ impl OnsenProgram {
     /// Panics if the API request or JSON parsing fails.
     #[must_use]
     pub fn init() -> Vec<OnsenProgram> {
-        let client = reqwest::blocking::Client::new();
+        let client = crate::http::blocking_client();
         match client.get("https://www.onsen.ag/web_api/programs").send() {
             Ok(m) => match m.json::<Vec<OnsenProgram>>() {
                 Ok(n) => n,
