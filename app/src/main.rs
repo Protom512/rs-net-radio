@@ -77,6 +77,12 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
 
+    // Validate environment variables after argument parsing to allow --help to work
+    std::env::var("RS_NET_ARCHIVE_PATH").context(
+        "RS_NET_ARCHIVE_PATH is not set. This environment variable is required to define where recordings are saved.\n\n\
+        Example:\n  export RS_NET_ARCHIVE_PATH=\"/path/to/archive\""
+    )?;
+
     match args.command {
         Commands::Batch { input } => {
             run_batch_recording(input).await?;

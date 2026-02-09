@@ -234,7 +234,7 @@ impl BatchSummary {
         println!("{}", "=".repeat(60));
 
         if self.total_count == 0 {
-            println!("\n録音対象の番組がありませんでした。");
+            println!("\n録音対象の番組がありませんでした。プログラムリストファイルが正しい形式（タイトル|URL|出力パス）で記述されているか確認してください。");
             println!("{}", "=".repeat(60));
             return;
         }
@@ -242,8 +242,8 @@ impl BatchSummary {
         // 基本統計
         println!("\n📊 基本統計:");
         println!("  総件数: {}", self.total_count);
-        println!("  成功: {} ✅", self.success_count);
-        println!("  失敗: {} ❌", self.failure_count);
+        println!("  成功: \x1b[32m{}\x1b[0m ✅", self.success_count);
+        println!("  失敗: \x1b[31m{}\x1b[0m ❌", self.failure_count);
 
         // 成功率
         #[expect(
@@ -280,9 +280,9 @@ impl BatchSummary {
 
         // 終了ステータス
         if self.failure_count > 0 {
-            println!("⚠️  警告: {}件の録音が失敗しました", self.failure_count);
+            println!("\x1b[33m⚠️  警告: {}件の録音が失敗しました\x1b[0m", self.failure_count);
         } else {
-            println!("✅ すべての録音が正常に完了しました");
+            println!("\x1b[32m✅ すべての録音が正常に完了しました\x1b[0m");
         }
         println!("{}", "=".repeat(60));
     }
