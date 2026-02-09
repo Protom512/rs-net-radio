@@ -280,7 +280,10 @@ impl BatchSummary {
 
         // 終了ステータス
         if self.failure_count > 0 {
-            println!("\x1b[33m⚠️  警告: {}件の録音が失敗しました\x1b[0m", self.failure_count);
+            println!(
+                "\x1b[33m⚠️  警告: {}件の録音が失敗しました\x1b[0m",
+                self.failure_count
+            );
         } else {
             println!("\x1b[32m✅ すべての録音が正常に完了しました\x1b[0m");
         }
