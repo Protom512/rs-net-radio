@@ -28,3 +28,17 @@ pub fn async_client() -> &'static reqwest::Client {
             .expect("Failed to create shared async reqwest client")
     })
 }
+
+/// Returns a shared, lazily-initialized `reqwest::Client` for long-running streaming downloads.
+///
+/// Reusing the client allows for connection pooling, which improves performance
+/// by avoiding the overhead of repeated TCP and TLS handshakes.
+pub fn streaming_client() -> &'static reqwest::Client {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(600))
+            .build()
+            .expect("Failed to create shared streaming reqwest client")
+    })
+}

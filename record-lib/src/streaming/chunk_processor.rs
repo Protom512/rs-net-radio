@@ -67,11 +67,8 @@ impl ChunkProcessor {
     pub async fn process_stream(&self, url: &str) -> Result<MemoryStats> {
         let start_time = std::time::Instant::now();
 
-        // Create HTTP client with timeout
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(300))
-            .build()
-            .context("Failed to create HTTP client")?;
+        // Use shared streaming client for connection pooling
+        let client = crate::http::streaming_client();
 
         // Start the download
         info!("Starting download from {}", url);
