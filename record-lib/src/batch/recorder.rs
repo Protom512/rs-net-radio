@@ -229,21 +229,38 @@ impl BatchSummary {
     /// This method displays a comprehensive summary of the batch recording operation,
     /// including success/failure counts, duration, and detailed failure information.
     pub fn print_summary(&self) {
-        println!("\n{}", "=".repeat(60));
-        println!("バッチ録音サマリー");
-        println!("{}", "=".repeat(60));
+        let green = "\x1b[32m";
+        let red = "\x1b[31m";
+        let yellow = "\x1b[33m";
+        let cyan = "\x1b[36m";
+        let bold = "\x1b[1m";
+        let reset = "\x1b[0m";
+
+        println!("\n{}{}{}", cyan, "=".repeat(60), reset);
+        println!("{}バッチ録音サマリー{}", bold, reset);
+        println!("{}{}{}", cyan, "=".repeat(60), reset);
 
         if self.total_count == 0 {
-            println!("\n録音対象の番組がありませんでした。");
-            println!("{}", "=".repeat(60));
+            println!("\n{}録音対象の番組がありませんでした。{}", yellow, reset);
+            println!("{}{}{}", cyan, "=".repeat(60), reset);
             return;
         }
 
         // 基本統計
-        println!("\n📊 基本統計:");
+        println!("\n{}📊 基本統計:{}", bold, reset);
         println!("  総件数: {}", self.total_count);
-        println!("  成功: {} ✅", self.success_count);
-        println!("  失敗: {} ❌", self.failure_count);
+        println!(
+            "  成功: {}{}{} ✅",
+            if self.success_count > 0 { green } else { "" },
+            self.success_count,
+            reset
+        );
+        println!(
+            "  失敗: {}{}{} ❌",
+            if self.failure_count > 0 { red } else { "" },
+            self.failure_count,
+            reset
+        );
 
         // 成功率
         #[expect(
@@ -252,11 +269,18 @@ impl BatchSummary {
         )]
         if self.total_count > 0 {
             let success_rate = (self.success_count as f64 / self.total_count as f64) * 100.0;
-            println!("  成功率: {success_rate:.1}%");
+            let color = if success_rate >= 100.0 {
+                green
+            } else if success_rate >= 80.0 {
+                yellow
+            } else {
+                red
+            };
+            println!("  成功率: {}{:.1}%{}", color, success_rate, reset);
         }
 
         // 処理時間
-        println!("\n⏱️  処理時間:");
+        println!("\n{}⏱️  処理時間:{}", bold, reset);
         println!("  総時間: {:.2}秒", self.duration.as_secs_f64());
         #[expect(
             clippy::cast_precision_loss,
@@ -264,27 +288,30 @@ impl BatchSummary {
         )]
         if self.total_count > 0 {
             let avg_time = self.duration.as_secs_f64() / self.total_count as f64;
-            println!("  平均時間: {avg_time:.2}秒/件");
+            println!("  平均時間: {:.2}秒/件", avg_time);
         }
 
         // 失敗詳細
         if !self.failures.is_empty() {
-            println!("\n❌ 失敗詳細:");
+            println!("\n{}❌ 失敗詳細:{}", red, reset);
             for (i, (title, error)) in self.failures.iter().enumerate() {
-                println!("  {}. {title}", i + 1);
-                println!("     エラー: {error}");
+                println!("  {}. {}{}{}", i + 1, bold, title, reset);
+                println!("     エラー: {}{}{}", red, error, reset);
             }
         }
 
-        println!("\n{}", "=".repeat(60));
+        println!("\n{}{}{}", cyan, "=".repeat(60), reset);
 
         // 終了ステータス
         if self.failure_count > 0 {
-            println!("⚠️  警告: {}件の録音が失敗しました", self.failure_count);
+            println!(
+                "{}⚠️  警告: {}件の録音が失敗しました{}",
+                yellow, self.failure_count, reset
+            );
         } else {
-            println!("✅ すべての録音が正常に完了しました");
+            println!("{}✅ すべての録音が正常に完了しました{}", green, reset);
         }
-        println!("{}", "=".repeat(60));
+        println!("{}{}{}", cyan, "=".repeat(60), reset);
     }
 
     /// Returns true if all recordings succeeded.
