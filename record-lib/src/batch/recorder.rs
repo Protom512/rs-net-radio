@@ -260,7 +260,11 @@ impl BatchSummary {
         )]
         if self.total_count > 0 {
             let success_rate = (self.success_count as f64 / self.total_count as f64) * 100.0;
-            let color = if self.failure_count == 0 { GREEN } else { YELLOW };
+            let color = if self.failure_count == 0 {
+                GREEN
+            } else {
+                YELLOW
+            };
             println!("  成功率: {color}{success_rate:.1}%{RESET}");
         }
 
