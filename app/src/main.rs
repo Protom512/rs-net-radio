@@ -31,7 +31,7 @@ struct Args {
 enum Commands {
     /// Run batch recording from a list of programs
     Batch {
-        /// Path to the program list file
+        /// Path to the program list file. Format: "title|url|output_path" (one per line)
         #[arg(short, long)]
         input: PathBuf,
     },

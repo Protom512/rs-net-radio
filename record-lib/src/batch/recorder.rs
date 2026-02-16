@@ -11,6 +11,14 @@ use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
+// ANSI color constants for terminal output
+const GREEN: &str = "\x1b[32m";
+const RED: &str = "\x1b[31m";
+const CYAN: &str = "\x1b[36m";
+const YELLOW: &str = "\x1b[33m";
+const RESET: &str = "\x1b[0m";
+const BOLD: &str = "\x1b[1m";
+
 /// Batch recorder for parallel recording tasks.
 ///
 /// This struct manages the parallel recording of multiple programs,
@@ -230,20 +238,20 @@ impl BatchSummary {
     /// including success/failure counts, duration, and detailed failure information.
     pub fn print_summary(&self) {
         println!("\n{}", "=".repeat(60));
-        println!("バッチ録音サマリー");
+        println!("{BOLD}バッチ録音サマリー{RESET}");
         println!("{}", "=".repeat(60));
 
         if self.total_count == 0 {
-            println!("\n録音対象の番組がありませんでした。");
+            println!("\n{YELLOW}録音対象の番組がありませんでした。{RESET}");
             println!("{}", "=".repeat(60));
             return;
         }
 
         // 基本統計
-        println!("\n📊 基本統計:");
+        println!("\n{BOLD}{CYAN}📊 基本統計:{RESET}");
         println!("  総件数: {}", self.total_count);
-        println!("  成功: {} ✅", self.success_count);
-        println!("  失敗: {} ❌", self.failure_count);
+        println!("  成功: {GREEN}{} ✅{RESET}", self.success_count);
+        println!("  失敗: {RED}{} ❌{RESET}", self.failure_count);
 
         // 成功率
         #[expect(
@@ -252,11 +260,12 @@ impl BatchSummary {
         )]
         if self.total_count > 0 {
             let success_rate = (self.success_count as f64 / self.total_count as f64) * 100.0;
-            println!("  成功率: {success_rate:.1}%");
+            let color = if self.failure_count == 0 { GREEN } else { YELLOW };
+            println!("  成功率: {color}{success_rate:.1}%{RESET}");
         }
 
         // 処理時間
-        println!("\n⏱️  処理時間:");
+        println!("\n{BOLD}{CYAN}⏱️  処理時間:{RESET}");
         println!("  総時間: {:.2}秒", self.duration.as_secs_f64());
         #[expect(
             clippy::cast_precision_loss,
@@ -269,10 +278,10 @@ impl BatchSummary {
 
         // 失敗詳細
         if !self.failures.is_empty() {
-            println!("\n❌ 失敗詳細:");
+            println!("\n{BOLD}{RED}❌ 失敗詳細:{RESET}");
             for (i, (title, error)) in self.failures.iter().enumerate() {
-                println!("  {}. {title}", i + 1);
-                println!("     エラー: {error}");
+                println!("  {}. {BOLD}{title}{RESET}", i + 1);
+                println!("     エラー: {RED}{error}{RESET}");
             }
         }
 
@@ -280,9 +289,12 @@ impl BatchSummary {
 
         // 終了ステータス
         if self.failure_count > 0 {
-            println!("⚠️  警告: {}件の録音が失敗しました", self.failure_count);
+            println!(
+                "{BOLD}{YELLOW}⚠️  警告: {}件の録音が失敗しました{RESET}",
+                self.failure_count
+            );
         } else {
-            println!("✅ すべての録音が正常に完了しました");
+            println!("{BOLD}{GREEN}✅ すべての録音が正常に完了しました{RESET}");
         }
         println!("{}", "=".repeat(60));
     }
