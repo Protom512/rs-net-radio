@@ -249,10 +249,19 @@ impl BatchSummary {
         // 基本統計
         println!("\n{}📊 基本統計:{}", Self::CYAN, Self::RESET);
         println!("  総件数: {}", self.total_count);
-        println!("  成功: {}{} ✅{}", Self::GREEN, self.success_count, Self::RESET);
+        println!(
+            "  成功: {}{} ✅{}",
+            Self::GREEN,
+            self.success_count,
+            Self::RESET
+        );
         println!(
             "  失敗: {}{} {}{}",
-            if self.failure_count > 0 { Self::RED } else { "" },
+            if self.failure_count > 0 {
+                Self::RED
+            } else {
+                ""
+            },
             self.failure_count,
             if self.failure_count > 0 { "❌" } else { "✅" },
             Self::RESET
@@ -307,7 +316,11 @@ impl BatchSummary {
                 Self::RESET
             );
         } else {
-            println!("{}✅ すべての録音が正常に完了しました{}", Self::GREEN, Self::RESET);
+            println!(
+                "{}✅ すべての録音が正常に完了しました{}",
+                Self::GREEN,
+                Self::RESET
+            );
         }
         println!("{}{}{}", Self::BOLD, "=".repeat(60), Self::RESET);
     }
