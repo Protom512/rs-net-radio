@@ -1,0 +1,3 @@
+## 2025-05-15 - [CLI Color Scannability & Progress Bar Feedback]
+**Learning:** Adding ANSI colors to CLI summaries significantly improves information scannability by creating a visual hierarchy for success, failure, and warning states. Additionally, when using `indicatif` progress bars, the template MUST include the `{msg}` placeholder for `finish_with_message` to be visible to the user.
+**Action:** Always verify progress bar templates include `{msg}` if dynamic status updates are needed, and use color thresholds (Green/Yellow/Red) for percentage-based results to provide immediate intuitive feedback.
