@@ -11,6 +11,14 @@ use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
+// ANSI terminal colors
+const GREEN: &str = "\x1b[32m";
+const RED: &str = "\x1b[31m";
+const YELLOW: &str = "\x1b[33m";
+const CYAN: &str = "\x1b[36m";
+const BOLD: &str = "\x1b[1m";
+const RESET: &str = "\x1b[0m";
+
 /// Batch recorder for parallel recording tasks.
 ///
 /// This struct manages the parallel recording of multiple programs,
@@ -83,7 +91,7 @@ impl BatchRecorder {
         progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template(
-                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}",
                 )
                 .unwrap()
                 .progress_chars("#>-"),
@@ -229,21 +237,26 @@ impl BatchSummary {
     /// This method displays a comprehensive summary of the batch recording operation,
     /// including success/failure counts, duration, and detailed failure information.
     pub fn print_summary(&self) {
-        println!("\n{}", "=".repeat(60));
-        println!("バッチ録音サマリー");
-        println!("{}", "=".repeat(60));
+        println!("\n{}{}{}{}", BOLD, CYAN, "=".repeat(60), RESET);
+        println!("{}バッチ録音サマリー{}", BOLD, RESET);
+        println!("{}{}{}{}", BOLD, CYAN, "=".repeat(60), RESET);
 
         if self.total_count == 0 {
             println!("\n録音対象の番組がありませんでした。");
-            println!("{}", "=".repeat(60));
+            println!("{}{}{}{}", BOLD, CYAN, "=".repeat(60), RESET);
             return;
         }
 
         // 基本統計
-        println!("\n📊 基本統計:");
+        println!("\n{}📊 基本統計:{}", BOLD, RESET);
         println!("  総件数: {}", self.total_count);
-        println!("  成功: {} ✅", self.success_count);
-        println!("  失敗: {} ❌", self.failure_count);
+        println!("  成功: {}{}{} ✅", GREEN, self.success_count, RESET);
+        println!(
+            "  失敗: {}{}{} ❌",
+            if self.failure_count > 0 { RED } else { RESET },
+            self.failure_count,
+            RESET
+        );
 
         // 成功率
         #[expect(
@@ -252,11 +265,18 @@ impl BatchSummary {
         )]
         if self.total_count > 0 {
             let success_rate = (self.success_count as f64 / self.total_count as f64) * 100.0;
-            println!("  成功率: {success_rate:.1}%");
+            let color = if success_rate >= 100.0 {
+                GREEN
+            } else if success_rate >= 80.0 {
+                YELLOW
+            } else {
+                RED
+            };
+            println!("  成功率: {}{}{:.1}%{}", BOLD, color, success_rate, RESET);
         }
 
         // 処理時間
-        println!("\n⏱️  処理時間:");
+        println!("\n{}⏱️  処理時間:{}", BOLD, RESET);
         println!("  総時間: {:.2}秒", self.duration.as_secs_f64());
         #[expect(
             clippy::cast_precision_loss,
@@ -269,22 +289,25 @@ impl BatchSummary {
 
         // 失敗詳細
         if !self.failures.is_empty() {
-            println!("\n❌ 失敗詳細:");
+            println!("\n{}❌ 失敗詳細:{}", BOLD, RESET);
             for (i, (title, error)) in self.failures.iter().enumerate() {
                 println!("  {}. {title}", i + 1);
-                println!("     エラー: {error}");
+                println!("     {}エラー: {}{}", RED, error, RESET);
             }
         }
 
-        println!("\n{}", "=".repeat(60));
+        println!("\n{}{}{}{}", BOLD, CYAN, "=".repeat(60), RESET);
 
         // 終了ステータス
         if self.failure_count > 0 {
-            println!("⚠️  警告: {}件の録音が失敗しました", self.failure_count);
+            println!(
+                "{}⚠️  警告: {}件の録音が失敗しました{}",
+                YELLOW, self.failure_count, RESET
+            );
         } else {
-            println!("✅ すべての録音が正常に完了しました");
+            println!("{}✅ すべての録音が正常に完了しました{}", GREEN, RESET);
         }
-        println!("{}", "=".repeat(60));
+        println!("{}{}{}{}", BOLD, CYAN, "=".repeat(60), RESET);
     }
 
     /// Returns true if all recordings succeeded.
