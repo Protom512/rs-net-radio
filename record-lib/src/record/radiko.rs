@@ -569,14 +569,20 @@ fn test_parse_date() {
 #[test]
 fn test_ch_sanitization() {
     let malicious_ch = "QRR/../../etc/passwd";
-    let sanitized: String = malicious_ch.chars().filter(|c| c.is_alphanumeric()).collect();
+    let sanitized: String = malicious_ch
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect();
     // Alphanumeric filter removes / and .
     assert!(!sanitized.contains('/'));
     assert!(!sanitized.contains('.'));
     assert_eq!(sanitized, "QRRetcpasswd");
 
     let injection_ch = "QRR?extra=param";
-    let sanitized_injection: String = injection_ch.chars().filter(|c| c.is_alphanumeric()).collect();
+    let sanitized_injection: String = injection_ch
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect();
     // Alphanumeric filter removes ? and =
     assert!(!sanitized_injection.contains('?'));
     assert!(!sanitized_injection.contains('='));
