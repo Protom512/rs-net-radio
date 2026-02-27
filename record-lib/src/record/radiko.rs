@@ -399,6 +399,7 @@ impl ChStreamingUrl {
     /// A `ChStreamingUrl` struct containing streaming URL information.
     #[must_use]
     pub fn init(ch: &str) -> ChStreamingUrl {
+        let ch: String = ch.chars().filter(|c| c.is_alphanumeric()).collect();
         let client = crate::http::blocking_client();
         let url = format!("http://radiko.jp/v2/station/stream_smh_multi/{ch}.xml");
         debug!("{:#?}", &url);
@@ -434,6 +435,7 @@ impl ChStreamingUrl {
 /// A `reqwest::blocking::Response` containing the program DOM.
 #[must_use]
 pub fn get_program_dom(ch: &str) -> Response {
+    let ch: String = ch.chars().filter(|c| c.is_alphanumeric()).collect();
     let client = crate::http::blocking_client();
     let url = format!("http://radiko.jp/v2/api/program/station/weekly?station_id={ch}");
     info!("{:#?}", &url);
@@ -562,4 +564,27 @@ fn test_parse_date() {
         progdate._parse_date(),
         NaiveDate::parse_from_str("20211125", "%Y%m%d").unwrap()
     );
+}
+
+#[test]
+fn test_ch_sanitization() {
+    let malicious_ch = "QRR/../../etc/passwd";
+    let sanitized: String = malicious_ch
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect();
+    // Alphanumeric filter removes / and .
+    assert!(!sanitized.contains('/'));
+    assert!(!sanitized.contains('.'));
+    assert_eq!(sanitized, "QRRetcpasswd");
+
+    let injection_ch = "QRR?extra=param";
+    let sanitized_injection: String = injection_ch
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect();
+    // Alphanumeric filter removes ? and =
+    assert!(!sanitized_injection.contains('?'));
+    assert!(!sanitized_injection.contains('='));
+    assert_eq!(sanitized_injection, "QRRextraparam");
 }
