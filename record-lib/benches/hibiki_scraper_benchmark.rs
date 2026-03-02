@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
 use record_lib::record::hibiki_scraper::HibikiScraper;
 use scraper::Html;
+use std::hint::black_box;
 
 fn bench_hibiki_scraper(c: &mut Criterion) {
     let scraper = HibikiScraper::new().unwrap();
@@ -23,7 +23,9 @@ fn bench_hibiki_scraper(c: &mut Criterion) {
 
     c.bench_function("HibikiScraper::extract_streaming_url_from_document", |b| {
         b.iter(|| {
-            scraper.extract_streaming_url_from_document(black_box(&document)).unwrap();
+            scraper
+                .extract_streaming_url_from_document(black_box(&document))
+                .unwrap();
         })
     });
 }

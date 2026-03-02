@@ -274,7 +274,12 @@ impl HibikiScraper {
                 (r#"(?:src|href)\s*=\s*"([^"]+\.(?:m3u8|mp4|ts)[^"]*)"#, 1), // src/href attributes
             ]
             .iter()
-            .map(|(p, g)| (regex::Regex::new(p).expect("Failed to parse static regex"), *g))
+            .map(|(p, g)| {
+                (
+                    regex::Regex::new(p).expect("Failed to parse static regex"),
+                    *g,
+                )
+            })
             .collect()
         });
 
@@ -526,5 +531,4 @@ mod tests {
             _ => panic!("Expected HttpError variant"),
         }
     }
-
 }
