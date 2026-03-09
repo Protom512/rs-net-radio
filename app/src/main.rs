@@ -170,7 +170,8 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
     for mut schedule in cron_config.schedules {
         // Security: Sanitize output_path to prevent path traversal
         // We only take the filename part and sanitize it.
-        let output_filename = schedule.output_path
+        let output_filename = schedule
+            .output_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("output.m4a");
@@ -288,7 +289,11 @@ mod security_unittests {
         use std::io::Write;
         let list_path = std::env::temp_dir().join("list_san.txt");
         let mut f = std::fs::File::create(&list_path).unwrap();
-        writeln!(f, "Malicious Program|http://example.com/stream|/tmp/evil.mp4").unwrap();
+        writeln!(
+            f,
+            "Malicious Program|http://example.com/stream|/tmp/evil.mp4"
+        )
+        .unwrap();
 
         let programs = parse_program_list(&list_path).unwrap();
         assert_eq!(programs.len(), 1);
@@ -303,7 +308,11 @@ mod security_unittests {
         use std::io::Write;
         let list_path = std::env::temp_dir().join("list_traversal.txt");
         let mut f = std::fs::File::create(&list_path).unwrap();
-        writeln!(f, "Traversal Program|http://example.com/stream|../../etc/passwd").unwrap();
+        writeln!(
+            f,
+            "Traversal Program|http://example.com/stream|../../etc/passwd"
+        )
+        .unwrap();
 
         let programs = parse_program_list(&list_path).unwrap();
         assert_eq!(programs.len(), 1);
