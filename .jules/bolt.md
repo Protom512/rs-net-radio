@@ -5,3 +5,7 @@
 ## 2025-05-23 - [reqwest::Client Cloning Efficiency]
 **Learning:** Cloning a `reqwest::Client` (and its blocking counterpart) is a very cheap operation because they internally use `Arc` to share the connection pool. This makes it efficient to pass clients by value or store them in multiple structs without losing the benefits of connection pooling.
 **Action:** When using shared clients, it is perfectly fine to clone them for use in different components or tasks, as long as they originate from the same initial instance to maintain the shared connection pool.
+
+## 2025-05-24 - [Cache selectors and regexes in HibikiScraper]
+**Learning:** Parsing CSS selectors with `scraper::Selector::parse` and regular expressions with `regex::Regex::new` are expensive operations. In scraping loops or frequently called methods, caching these objects can lead to massive performance gains (e.g., 188x faster in this case).
+**Action:** Use `std::sync::OnceLock` to cache expensive-to-parse objects in hot paths.

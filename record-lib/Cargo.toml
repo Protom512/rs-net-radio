@@ -44,3 +44,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 [[bench]]
 name = "batch_benchmark"
 harness = false
+
+[[bench]]
+name = "hibiki_bench"
+harness = false
