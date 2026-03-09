@@ -167,7 +167,16 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
         .context("Failed to create cron manager")?;
 
     // Add schedules
-    for schedule in cron_config.schedules {
+    for mut schedule in cron_config.schedules {
+        // Security: Sanitize output_path to prevent path traversal
+        // We only take the filename part and sanitize it.
+        let output_filename = schedule.output_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("output.m4a");
+        let sanitized_filename = record_lib::utils::sanitize_filename(output_filename);
+        schedule.output_path = PathBuf::from(sanitized_filename);
+
         cron_manager
             .add_schedule(schedule)
             .await
@@ -230,7 +239,16 @@ fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
 
         let title = parts[0].to_string();
         let url = parts[1].to_string();
-        let output_path = PathBuf::from(parts[2]);
+        let raw_output_path = parts[2];
+
+        // Security: Sanitize output_path to prevent path traversal.
+        // We only take the filename part and sanitize it.
+        let output_filename = std::path::Path::new(raw_output_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("output.m4a");
+        let sanitized_filename = record_lib::utils::sanitize_filename(output_filename);
+        let output_path = PathBuf::from(sanitized_filename);
 
         programs.push(Program {
             title,
@@ -259,4 +277,39 @@ fn load_cron_config(path: &PathBuf) -> Result<record_lib::config::CronConfig> {
         .with_context(|| format!("Failed to parse cron config: {}", path.display()))?;
 
     Ok(config)
+}
+
+#[cfg(test)]
+mod security_unittests {
+    use super::*;
+
+    #[test]
+    fn test_parse_program_list_sanitization() {
+        use std::io::Write;
+        let list_path = std::env::temp_dir().join("list_san.txt");
+        let mut f = std::fs::File::create(&list_path).unwrap();
+        writeln!(f, "Malicious Program|http://example.com/stream|/tmp/evil.mp4").unwrap();
+
+        let programs = parse_program_list(&list_path).unwrap();
+        assert_eq!(programs.len(), 1);
+
+        // The path should be sanitized to just the filename
+        assert_eq!(programs[0].output_path, PathBuf::from("evil.mp4"));
+        let _ = std::fs::remove_file(list_path);
+    }
+
+    #[test]
+    fn test_parse_program_list_path_traversal() {
+        use std::io::Write;
+        let list_path = std::env::temp_dir().join("list_traversal.txt");
+        let mut f = std::fs::File::create(&list_path).unwrap();
+        writeln!(f, "Traversal Program|http://example.com/stream|../../etc/passwd").unwrap();
+
+        let programs = parse_program_list(&list_path).unwrap();
+        assert_eq!(programs.len(), 1);
+
+        // Path::file_name() should take \"passwd\" from \"../../etc/passwd\"
+        assert_eq!(programs[0].output_path, PathBuf::from("passwd"));
+        let _ = std::fs::remove_file(list_path);
+    }
 }
