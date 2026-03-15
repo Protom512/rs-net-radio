@@ -25,10 +25,7 @@ use tracing::{debug, error, info};
 /// Performance impact: Reduces `extract_streaming_url_from_document` latency from ~147 µs to ~780 ns
 /// (approx. 188x improvement) by avoiding repeated parsing of selectors and regexes.
 static SCRIPT_SELECTOR: OnceLock<Selector> = OnceLock::new();
-static DATA_STREAMING_URL_SELECTOR: OnceLock<Selector> = OnceLock::new();
-static DATA_VIDEO_URL_SELECTOR: OnceLock<Selector> = OnceLock::new();
-static DATA_MOVIE_URL_SELECTOR: OnceLock<Selector> = OnceLock::new();
-static DATA_URL_SELECTOR: OnceLock<Selector> = OnceLock::new();
+static DATA_ATTRIBUTE_SELECTOR: OnceLock<Selector> = OnceLock::new();
 static IFRAME_SELECTOR: OnceLock<Selector> = OnceLock::new();
 
 static URL_REGEX: OnceLock<regex::Regex> = OnceLock::new();
@@ -203,29 +200,24 @@ impl HibikiScraper {
         &self,
         document: &Html,
     ) -> Result<Option<String>, RecordError> {
-        // Try various data attributes that might contain the streaming URL
-        let selectors = [
-            ("[data-streaming-url]", &DATA_STREAMING_URL_SELECTOR),
-            ("[data-video-url]", &DATA_VIDEO_URL_SELECTOR),
-            ("[data-movie-url]", &DATA_MOVIE_URL_SELECTOR),
-            ("[data-url]", &DATA_URL_SELECTOR),
-        ];
+        // Try various data attributes that might contain the streaming URL.
+        // We use a combined selector to perform a single pass over the DOM.
+        let selector = DATA_ATTRIBUTE_SELECTOR.get_or_init(|| {
+            Selector::parse("[data-streaming-url], [data-video-url], [data-movie-url], [data-url]")
+                .expect("Failed to parse data attribute selector")
+        });
 
-        for (selector_str, cache) in &selectors {
-            let selector = cache
-                .get_or_init(|| Selector::parse(selector_str).expect("Failed to parse selector"));
-            for element in document.select(selector) {
-                if let Some(url) = element
-                    .value()
-                    .attr("data-streaming-url")
-                    .or(element.value().attr("data-video-url"))
-                    .or(element.value().attr("data-movie-url"))
-                    .or(element.value().attr("data-url"))
-                {
-                    if self.is_valid_streaming_url(url) {
-                        debug!("Found URL in data attribute: {}", url);
-                        return Ok(Some(url.to_string()));
-                    }
+        for element in document.select(selector) {
+            let value = element.value();
+            if let Some(url) = value
+                .attr("data-streaming-url")
+                .or_else(|| value.attr("data-video-url"))
+                .or_else(|| value.attr("data-movie-url"))
+                .or_else(|| value.attr("data-url"))
+            {
+                if self.is_valid_streaming_url(url) {
+                    debug!("Found URL in data attribute: {}", url);
+                    return Ok(Some(url.to_string()));
                 }
             }
         }
