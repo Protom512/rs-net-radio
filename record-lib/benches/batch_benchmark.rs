@@ -3,7 +3,10 @@
 //! This module uses Criterion to measure and analyze the performance
 //! of batch recording functionality.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
+use record_lib::record::hibiki_scraper::HibikiScraper;
+use scraper::Html;
 use record_lib::batch::BatchRecorder;
 use record_lib::domain::metadata::RecordingMetadata;
 use record_lib::domain::service::{Program, RecordService};
@@ -55,11 +58,11 @@ fn bench_batch_recording(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(count),
             count,
-            |b, &count: &usize| {
+            |b, count| {
                 b.iter(|| {
                     rt.block_on(async {
-                        let recorder = BatchRecorder::new(3, 1, Duration::from_secs(30));
-                        let programs = create_programs(count);
+                        let recorder = BatchRecorder::new(*count, 1, Duration::from_secs(30));
+                        let programs = create_programs(*count);
                         let service = Arc::clone(&service);
                         recorder
                             .record_batch(black_box(programs), service)
@@ -74,6 +77,35 @@ fn bench_batch_recording(c: &mut Criterion) {
 }
 
 /// Benchmark with different parallel job limits.
+/// Benchmark Hibiki HTML scraping logic.
+fn bench_hibiki_scraping(c: &mut Criterion) {
+    let scraper = HibikiScraper::new().unwrap();
+    let html_content = r#"
+        <!DOCTYPE html>
+        <html>
+        <head><title>Hibiki Radio Test</title></head>
+        <body>
+            <div data-streaming-url="https://example.com/data.m3u8"></div>
+            <script>var url = "https://example.com/script.m3u8";</script>
+            <script>{"streamingUrl": "https://example.com/json.m3u8"}</script>
+            <iframe src="https://example.com/iframe.m3u8"></iframe>
+            <script>console.log("nothing here");</script>
+            <script>console.log("nothing here either");</script>
+            <script>console.log("still nothing");</script>
+        </body>
+        </html>
+    "#;
+    let document = Html::parse_document(html_content);
+
+    c.bench_function("hibiki_extract_streaming_url", |b| {
+        b.iter(|| {
+            scraper
+                .extract_streaming_url_from_document(black_box(&document))
+                .unwrap()
+        })
+    });
+}
+
 fn bench_parallel_jobs(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let service = Arc::new(MockRecordService);
@@ -84,10 +116,10 @@ fn bench_parallel_jobs(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(max_jobs),
             max_jobs,
-            |b, &max_jobs: &usize| {
+            |b, max_jobs| {
                 b.iter(|| {
                     rt.block_on(async {
-                        let recorder = BatchRecorder::new(max_jobs, 1, Duration::from_secs(30));
+                        let recorder = BatchRecorder::new(*max_jobs, 1, Duration::from_secs(30));
                         let programs = programs.clone();
                         let service = Arc::clone(&service);
                         recorder
@@ -102,5 +134,10 @@ fn bench_parallel_jobs(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_batch_recording, bench_parallel_jobs);
+criterion_group!(
+    benches,
+    bench_batch_recording,
+    bench_parallel_jobs,
+    bench_hibiki_scraping
+);
 criterion_main!(benches);
