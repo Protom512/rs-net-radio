@@ -4,13 +4,13 @@
 //! of batch recording functionality.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
-use record_lib::record::hibiki_scraper::HibikiScraper;
-use scraper::Html;
 use record_lib::batch::BatchRecorder;
 use record_lib::domain::metadata::RecordingMetadata;
 use record_lib::domain::service::{Program, RecordService};
+use record_lib::record::hibiki_scraper::HibikiScraper;
 use record_lib::utils::RecordError;
+use scraper::Html;
+use std::hint::black_box;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -55,23 +55,19 @@ fn bench_batch_recording(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("batch_recording");
     for count in [1, 5, 10, 20, 50].iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(count),
-            count,
-            |b, count| {
-                b.iter(|| {
-                    rt.block_on(async {
-                        let recorder = BatchRecorder::new(*count, 1, Duration::from_secs(30));
-                        let programs = create_programs(*count);
-                        let service = Arc::clone(&service);
-                        recorder
-                            .record_batch(black_box(programs), service)
-                            .await
-                            .unwrap()
-                    })
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, count| {
+            b.iter(|| {
+                rt.block_on(async {
+                    let recorder = BatchRecorder::new(*count, 1, Duration::from_secs(30));
+                    let programs = create_programs(*count);
+                    let service = Arc::clone(&service);
+                    recorder
+                        .record_batch(black_box(programs), service)
+                        .await
+                        .unwrap()
+                })
+            });
+        });
     }
     group.finish();
 }
