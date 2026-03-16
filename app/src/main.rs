@@ -167,7 +167,18 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
         .context("Failed to create cron manager")?;
 
     // Add schedules
-    for schedule in cron_config.schedules {
+    for mut schedule in cron_config.schedules {
+        // Sanitize output_path to prevent path traversal
+        // We only allow the filename component
+        let filename = schedule
+            .output_path
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or("scheduled_recording.mp4");
+
+        let sanitized_filename = record_lib::utils::sanitize_filename(filename);
+        schedule.output_path = PathBuf::from(sanitized_filename);
+
         cron_manager
             .add_schedule(schedule)
             .await
@@ -230,7 +241,17 @@ fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
 
         let title = parts[0].to_string();
         let url = parts[1].to_string();
-        let output_path = PathBuf::from(parts[2]);
+        let raw_path = PathBuf::from(parts[2]);
+
+        // Sanitize output_path to prevent path traversal
+        // We only allow the filename component
+        let filename = raw_path
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or("output.mp4");
+
+        let sanitized_filename = record_lib::utils::sanitize_filename(filename);
+        let output_path = PathBuf::from(sanitized_filename);
 
         programs.push(Program {
             title,
@@ -259,4 +280,42 @@ fn load_cron_config(path: &PathBuf) -> Result<record_lib::config::CronConfig> {
         .with_context(|| format!("Failed to parse cron config: {}", path.display()))?;
 
     Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn test_parse_program_list_sanitization() {
+        let mut path = std::env::temp_dir();
+        path.push("test_sanitization.txt");
+        let mut file = std::fs::File::create(&path).unwrap();
+        writeln!(file, "Test|http://example.com|../../etc/passwd").unwrap();
+        writeln!(file, "Test2|http://example.com|some/dir/file.mp4").unwrap();
+
+        let programs = parse_program_list(&path).unwrap();
+
+        assert_eq!(programs.len(), 2);
+        assert_eq!(programs[0].output_path.to_str().unwrap(), "passwd");
+        assert_eq!(programs[1].output_path.to_str().unwrap(), "file.mp4");
+
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_parse_program_list_invalid_filename() {
+        let mut path = std::env::temp_dir();
+        path.push("test_invalid.txt");
+        let mut file = std::fs::File::create(&path).unwrap();
+        writeln!(file, "Test|http://example.com|/").unwrap();
+
+        let programs = parse_program_list(&path).unwrap();
+
+        assert_eq!(programs.len(), 1);
+        assert_eq!(programs[0].output_path.to_str().unwrap(), "output.mp4");
+
+        std::fs::remove_file(path).unwrap();
+    }
 }
