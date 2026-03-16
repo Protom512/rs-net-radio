@@ -253,7 +253,12 @@ impl BatchSummary {
         println!("\n{cyan}📊 基本統計:{reset}");
         println!("  総件数: {}", self.total_count);
         println!("  成功: {green}{} ✅{reset}", self.success_count);
-        println!("  失敗: {}{}{} ❌{reset}", if self.failure_count > 0 { red } else { "" }, self.failure_count, if self.failure_count > 0 { reset } else { "" });
+        println!(
+            "  失敗: {}{}{} ❌{reset}",
+            if self.failure_count > 0 { red } else { "" },
+            self.failure_count,
+            if self.failure_count > 0 { reset } else { "" }
+        );
 
         // 成功率
         if self.total_count > 0 {
@@ -293,7 +298,10 @@ impl BatchSummary {
 
         // 終了ステータス
         if self.failure_count > 0 {
-            println!("{yellow}⚠️  警告: {}件の録音が失敗しました{reset}", self.failure_count);
+            println!(
+                "{yellow}⚠️  警告: {}件の録音が失敗しました{reset}",
+                self.failure_count
+            );
         } else {
             println!("{green}✅ すべての録音が正常に完了しました{reset}");
         }
