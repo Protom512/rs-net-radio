@@ -22,6 +22,10 @@ pub struct Config {
     /// Logging configuration.
     #[serde(default)]
     pub logging: LoggingConfig,
+
+    /// Trusted base directory for recordings.
+    #[serde(default)]
+    pub recordings_dir: Option<PathBuf>,
 }
 
 /// Batch recording configuration.
@@ -153,6 +157,10 @@ pub struct CronConfig {
     /// Scheduled recording tasks.
     #[serde(default)]
     pub schedules: Vec<Schedule>,
+
+    /// Trusted base directory for recordings.
+    #[serde(default)]
+    pub recordings_dir: Option<PathBuf>,
 }
 
 /// A single scheduled recording task.
@@ -208,6 +216,7 @@ mod tests {
     fn test_default_config() {
         let config = Config::default();
 
+        assert!(config.recordings_dir.is_none());
         assert_eq!(config.batch.max_parallel_jobs, 3);
         assert_eq!(config.batch.retry_count, 3);
         assert_eq!(config.batch.timeout_seconds, 30);

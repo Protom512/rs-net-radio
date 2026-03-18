@@ -117,7 +117,8 @@ async fn run_batch_recording(input_path: PathBuf) -> Result<()> {
         .context("Failed to load configuration")?;
 
     // Parse program list
-    let programs = parse_program_list(&input_path).context("Failed to parse program list")?;
+    let programs =
+        parse_program_list(&input_path, config.recordings_dir.as_deref()).context("Failed to parse program list")?;
 
     // Create batch recorder
     let recorder = BatchRecorder::new(
@@ -169,7 +170,8 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
     // Add schedules
     for mut schedule in cron_config.schedules {
         // Sanitize output_path to prevent path traversal
-        schedule.output_path = sanitize_output_path(&schedule.output_path);
+        schedule.output_path =
+            sanitize_output_path(&schedule.output_path, cron_config.recordings_dir.as_deref());
 
         cron_manager
             .add_schedule(schedule)
@@ -210,7 +212,7 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
 /// # Errors
 ///
 /// Returns an error if the file cannot be read or parsed.
-fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
+fn parse_program_list(path: &PathBuf, base_dir: Option<&Path>) -> Result<Vec<Program>> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read program list: {}", path.display()))?;
 
@@ -233,7 +235,7 @@ fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
 
         let title = parts[0].to_string();
         let url = parts[1].to_string();
-        let output_path = sanitize_output_path(&PathBuf::from(parts[2]));
+        let output_path = sanitize_output_path(&PathBuf::from(parts[2]), base_dir);
 
         programs.push(Program {
             title,
@@ -270,7 +272,7 @@ fn load_cron_config(path: &PathBuf) -> Result<record_lib::config::CronConfig> {
 /// and applies additional sanitization to ensure it is a safe filename.
 /// This ensures that recordings are always saved within the intended directory
 /// and cannot overwrite arbitrary system files.
-fn sanitize_output_path(path: &Path) -> PathBuf {
+fn sanitize_output_path(path: &Path, base_dir: Option<&Path>) -> PathBuf {
     // We only allow the filename component to prevent path traversal
     let filename = path
         .file_name()
@@ -287,7 +289,9 @@ fn sanitize_output_path(path: &Path) -> PathBuf {
         );
     }
 
-    PathBuf::from(sanitized)
+    let mut result = base_dir.map_or_else(PathBuf::new, |d| d.to_path_buf());
+    result.push(sanitized);
+    result
 }
 
 #[cfg(test)]
@@ -303,11 +307,30 @@ mod tests {
         writeln!(file, "Test|http://example.com|../../etc/passwd").unwrap();
         writeln!(file, "Test2|http://example.com|some/dir/file.mp4").unwrap();
 
-        let programs = parse_program_list(&path).unwrap();
+        let programs = parse_program_list(&path, None).unwrap();
 
         assert_eq!(programs.len(), 2);
         assert_eq!(programs[0].output_path.to_str().unwrap(), "passwd");
         assert_eq!(programs[1].output_path.to_str().unwrap(), "file.mp4");
+
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_parse_program_list_with_base_dir() {
+        let mut path = std::env::temp_dir();
+        path.push("test_base_dir.txt");
+        let mut file = std::fs::File::create(&path).unwrap();
+        writeln!(file, "Test|http://example.com|../../etc/passwd").unwrap();
+
+        let base_dir = PathBuf::from("/trusted/recordings");
+        let programs = parse_program_list(&path, Some(&base_dir)).unwrap();
+
+        assert_eq!(programs.len(), 1);
+        assert_eq!(
+            programs[0].output_path.to_str().unwrap(),
+            "/trusted/recordings/passwd"
+        );
 
         std::fs::remove_file(path).unwrap();
     }
@@ -319,7 +342,7 @@ mod tests {
         let mut file = std::fs::File::create(&path).unwrap();
         writeln!(file, "Test|http://example.com|/").unwrap();
 
-        let programs = parse_program_list(&path).unwrap();
+        let programs = parse_program_list(&path, None).unwrap();
 
         assert_eq!(programs.len(), 1);
         assert_eq!(programs[0].output_path.to_str().unwrap(), "output.mp4");
