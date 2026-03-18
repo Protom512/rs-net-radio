@@ -10,8 +10,8 @@ use record_lib::config::repository::ConfigRepository;
 use record_lib::config::FileConfigRepository;
 use record_lib::domain::service::Program;
 use record_lib::scheduler::CronManager;
-use record_lib::utils::RecordError;
-use std::path::PathBuf;
+use record_lib::utils::{sanitize_filename, RecordError};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{error, info};
@@ -169,15 +169,7 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
     // Add schedules
     for mut schedule in cron_config.schedules {
         // Sanitize output_path to prevent path traversal
-        // We only allow the filename component
-        let filename = schedule
-            .output_path
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or("scheduled_recording.mp4");
-
-        let sanitized_filename = record_lib::utils::sanitize_filename(filename);
-        schedule.output_path = PathBuf::from(sanitized_filename);
+        schedule.output_path = sanitize_output_path(&schedule.output_path);
 
         cron_manager
             .add_schedule(schedule)
@@ -241,17 +233,7 @@ fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
 
         let title = parts[0].to_string();
         let url = parts[1].to_string();
-        let raw_path = PathBuf::from(parts[2]);
-
-        // Sanitize output_path to prevent path traversal
-        // We only allow the filename component
-        let filename = raw_path
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or("output.mp4");
-
-        let sanitized_filename = record_lib::utils::sanitize_filename(filename);
-        let output_path = PathBuf::from(sanitized_filename);
+        let output_path = sanitize_output_path(&PathBuf::from(parts[2]));
 
         programs.push(Program {
             title,
@@ -280,6 +262,32 @@ fn load_cron_config(path: &PathBuf) -> Result<record_lib::config::CronConfig> {
         .with_context(|| format!("Failed to parse cron config: {}", path.display()))?;
 
     Ok(config)
+}
+
+/// Sanitizes an output path to prevent path traversal vulnerabilities.
+///
+/// This function extracts only the filename component of the provided path
+/// and applies additional sanitization to ensure it is a safe filename.
+/// This ensures that recordings are always saved within the intended directory
+/// and cannot overwrite arbitrary system files.
+fn sanitize_output_path(path: &Path) -> PathBuf {
+    // We only allow the filename component to prevent path traversal
+    let filename = path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("output.mp4");
+
+    let sanitized = sanitize_filename(filename);
+
+    if path.to_string_lossy() != sanitized {
+        info!(
+            "Sanitized output path to prevent traversal: {} -> {}",
+            path.display(),
+            sanitized
+        );
+    }
+
+    PathBuf::from(sanitized)
 }
 
 #[cfg(test)]
