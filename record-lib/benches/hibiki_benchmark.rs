@@ -4,9 +4,9 @@
 //! of Hibiki radio scraping and URL extraction.
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
 use record_lib::record::hibiki_scraper::HibikiScraper;
 use scraper::Html;
+use std::hint::black_box;
 
 /// Benchmark Hibiki Radio URL extraction from a pre-parsed HTML document.
 fn bench_hibiki_extraction(c: &mut Criterion) {

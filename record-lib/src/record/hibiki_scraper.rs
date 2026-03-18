@@ -157,9 +157,8 @@ impl HibikiScraper {
     /// Returns an error if parsing fails.
     fn try_extract_from_script(&self, document: &Html) -> Result<Option<String>, RecordError> {
         static SCRIPT_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let script_selector = SCRIPT_SELECTOR.get_or_init(|| {
-            Selector::parse("script").expect("Failed to parse script selector")
-        });
+        let script_selector = SCRIPT_SELECTOR
+            .get_or_init(|| Selector::parse("script").expect("Failed to parse script selector"));
 
         for element in document.select(script_selector) {
             let script_content = element.text().collect::<Vec<_>>().join(" ");
@@ -239,9 +238,8 @@ impl HibikiScraper {
     /// Returns an error if parsing fails.
     fn try_extract_from_iframe(&self, document: &Html) -> Result<Option<String>, RecordError> {
         static IFRAME_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let iframe_selector = IFRAME_SELECTOR.get_or_init(|| {
-            Selector::parse("iframe").expect("Failed to parse iframe selector")
-        });
+        let iframe_selector = IFRAME_SELECTOR
+            .get_or_init(|| Selector::parse("iframe").expect("Failed to parse iframe selector"));
 
         for element in document.select(iframe_selector) {
             if let Some(src) = element.value().attr("src") {
@@ -276,12 +274,7 @@ impl HibikiScraper {
                 (r#"(?:src|href)\s*=\s*"([^"]+\.(?:m3u8|mp4|ts)[^"]*)"#, 1), // src/href attributes
             ]
             .iter()
-            .map(|(p, g)| {
-                (
-                    Regex::new(p).expect("Failed to compile regex pattern"),
-                    *g,
-                )
-            })
+            .map(|(p, g)| (Regex::new(p).expect("Failed to compile regex pattern"), *g))
             .collect()
         });
 
