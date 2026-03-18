@@ -13,10 +13,12 @@
 )]
 #![expect(clippy::unused_self, reason = "self parameter reserved for future use")]
 
-use crate::utils::{handle_html_parsing_error, html_parsing_error, RecordError};
+use crate::utils::{handle_html_parsing_error, RecordError};
+use regex::Regex;
 use reqwest::blocking::Client;
 use reqwest::header::{REFERER, USER_AGENT};
 use scraper::{Html, Selector};
+use std::sync::OnceLock;
 use tracing::{debug, error, info};
 
 /// Hibiki radio scraper for extracting streaming URLs.
@@ -88,30 +90,56 @@ impl HibikiScraper {
         // Parse HTML
         let document = Html::parse_document(&html_text);
 
+        // Extract streaming URL from document
+        match self.extract_streaming_url_from_document(&document)? {
+            Some(url) => Ok(url),
+            None => {
+                // If no URL found, this might be a site structure change
+                let error_msg = format!(
+                    "Could not extract streaming URL from page. The site structure may have changed. URL: {page_url}"
+                );
+                error!("{}", error_msg);
+
+                // Use the HTML parsing error handler which will exit with code 3
+                Err(handle_html_parsing_error(page_url, &error_msg))
+            }
+        }
+    }
+
+    /// Extracts the streaming URL from a parsed Hibiki Radio HTML document.
+    ///
+    /// # Arguments
+    ///
+    /// * `document` - The parsed HTML document.
+    ///
+    /// # Returns
+    ///
+    /// The streaming URL if found.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing fails.
+    pub fn extract_streaming_url_from_document(
+        &self,
+        document: &Html,
+    ) -> Result<Option<String>, RecordError> {
         // Try to find streaming URL in various possible locations
-        if let Some(url) = self.try_extract_from_script(&document)? {
+        if let Some(url) = self.try_extract_from_script(document)? {
             info!("Successfully extracted streaming URL from script tags");
-            return Ok(url);
+            return Ok(Some(url));
         }
 
-        if let Some(url) = self.try_extract_from_data_attribute(&document)? {
+        if let Some(url) = self.try_extract_from_data_attribute(document)? {
             info!("Successfully extracted streaming URL from data attributes");
-            return Ok(url);
+            return Ok(Some(url));
         }
 
-        if let Some(url) = self.try_extract_from_iframe(&document)? {
+        if let Some(url) = self.try_extract_from_iframe(document)? {
             info!("Successfully extracted streaming URL from iframe");
-            return Ok(url);
+            return Ok(Some(url));
         }
 
-        // If no URL found, this might be a site structure change
-        let error_msg = format!(
-            "Could not extract streaming URL from page. The site structure may have changed. URL: {page_url}"
-        );
-        error!("{}", error_msg);
-
-        // Use the HTML parsing error handler which will exit with code 3
-        Err(handle_html_parsing_error(page_url, &error_msg))
+        Ok(None)
     }
 
     /// Tries to extract streaming URL from script tags.
@@ -128,11 +156,12 @@ impl HibikiScraper {
     ///
     /// Returns an error if parsing fails.
     fn try_extract_from_script(&self, document: &Html) -> Result<Option<String>, RecordError> {
-        let script_selector = Selector::parse("script").map_err(|e| {
-            html_parsing_error("", &format!("Failed to parse script selector: {e}"))
-        })?;
+        static SCRIPT_SELECTOR: OnceLock<Selector> = OnceLock::new();
+        let script_selector = SCRIPT_SELECTOR.get_or_init(|| {
+            Selector::parse("script").expect("Failed to parse script selector")
+        });
 
-        for element in document.select(&script_selector) {
+        for element in document.select(script_selector) {
             let script_content = element.text().collect::<Vec<_>>().join(" ");
 
             // Look for common patterns in Hibiki Radio pages
@@ -162,27 +191,31 @@ impl HibikiScraper {
         document: &Html,
     ) -> Result<Option<String>, RecordError> {
         // Try various data attributes that might contain the streaming URL
-        let selectors = [
-            "[data-streaming-url]",
-            "[data-video-url]",
-            "[data-movie-url]",
-            "[data-url]",
-        ];
+        static SELECTORS: OnceLock<Vec<Selector>> = OnceLock::new();
+        let selectors = SELECTORS.get_or_init(|| {
+            [
+                "[data-streaming-url]",
+                "[data-video-url]",
+                "[data-movie-url]",
+                "[data-url]",
+            ]
+            .iter()
+            .map(|s| Selector::parse(s).expect("Failed to parse data selector"))
+            .collect()
+        });
 
-        for selector_str in &selectors {
-            if let Ok(selector) = Selector::parse(selector_str) {
-                for element in document.select(&selector) {
-                    if let Some(url) = element
-                        .value()
-                        .attr("data-streaming-url")
-                        .or(element.value().attr("data-video-url"))
-                        .or(element.value().attr("data-movie-url"))
-                        .or(element.value().attr("data-url"))
-                    {
-                        if self.is_valid_streaming_url(url) {
-                            debug!("Found URL in data attribute: {}", url);
-                            return Ok(Some(url.to_string()));
-                        }
+        for selector in selectors {
+            for element in document.select(selector) {
+                if let Some(url) = element
+                    .value()
+                    .attr("data-streaming-url")
+                    .or(element.value().attr("data-video-url"))
+                    .or(element.value().attr("data-movie-url"))
+                    .or(element.value().attr("data-url"))
+                {
+                    if self.is_valid_streaming_url(url) {
+                        debug!("Found URL in data attribute: {}", url);
+                        return Ok(Some(url.to_string()));
                     }
                 }
             }
@@ -205,11 +238,12 @@ impl HibikiScraper {
     ///
     /// Returns an error if parsing fails.
     fn try_extract_from_iframe(&self, document: &Html) -> Result<Option<String>, RecordError> {
-        let iframe_selector = Selector::parse("iframe").map_err(|e| {
-            html_parsing_error("", &format!("Failed to parse iframe selector: {e}"))
-        })?;
+        static IFRAME_SELECTOR: OnceLock<Selector> = OnceLock::new();
+        let iframe_selector = IFRAME_SELECTOR.get_or_init(|| {
+            Selector::parse("iframe").expect("Failed to parse iframe selector")
+        });
 
-        for element in document.select(&iframe_selector) {
+        for element in document.select(iframe_selector) {
             if let Some(src) = element.value().attr("src") {
                 if self.is_valid_streaming_url(src) {
                     debug!("Found URL in iframe: {}", src);
@@ -232,29 +266,38 @@ impl HibikiScraper {
     /// The URL if found and valid.
     fn extract_url_from_text(&self, text: &str) -> Option<String> {
         // Common patterns for streaming URLs in Hibiki Radio pages
-        let patterns = [
-            (r#"https?://[^"'<>]+\.(?:m3u8|mp4|ts)[^"'<>]*"#, 0), // Direct streaming URLs (full match)
-            (r#""url"\s*:\s*"([^"]+)""#, 1),                      // JSON "url" field
-            (r#""streamingUrl"\s*:\s*"([^"]+)""#, 1),             // JSON "streamingUrl" field
-            (r#""videoUrl"\s*:\s*"([^"]+)""#, 1),                 // JSON "videoUrl" field
-            (r#"(?:src|href)\s*=\s*"([^"]+\.(?:m3u8|mp4|ts)[^"]*)"#, 1), // src/href attributes
-        ];
+        static REGEX_PATTERNS: OnceLock<Vec<(Regex, usize)>> = OnceLock::new();
+        let patterns = REGEX_PATTERNS.get_or_init(|| {
+            [
+                (r#"https?://[^"'<>]+\.(?:m3u8|mp4|ts)[^"'<>]*"#, 0), // Direct streaming URLs (full match)
+                (r#""url"\s*:\s*"([^"]+)""#, 1),                      // JSON "url" field
+                (r#""streamingUrl"\s*:\s*"([^"]+)""#, 1),             // JSON "streamingUrl" field
+                (r#""videoUrl"\s*:\s*"([^"]+)""#, 1),                 // JSON "videoUrl" field
+                (r#"(?:src|href)\s*=\s*"([^"]+\.(?:m3u8|mp4|ts)[^"]*)"#, 1), // src/href attributes
+            ]
+            .iter()
+            .map(|(p, g)| {
+                (
+                    Regex::new(p).expect("Failed to compile regex pattern"),
+                    *g,
+                )
+            })
+            .collect()
+        });
 
-        for (pattern, group) in &patterns {
-            if let Ok(re) = regex::Regex::new(pattern) {
-                if let Some(captures) = re.captures(text) {
-                    // Get the appropriate capture group (0 for full match, 1+ for specific groups)
-                    let url = if *group == 0 {
-                        captures.get(0)
-                    } else {
-                        captures.get(*group)
-                    };
+        for (re, group) in patterns {
+            if let Some(captures) = re.captures(text) {
+                // Get the appropriate capture group (0 for full match, 1+ for specific groups)
+                let url = if *group == 0 {
+                    captures.get(0)
+                } else {
+                    captures.get(*group)
+                };
 
-                    if let Some(url_match) = url {
-                        let url_str = url_match.as_str();
-                        if self.is_valid_streaming_url(url_str) {
-                            return Some(url_str.to_string());
-                        }
+                if let Some(url_match) = url {
+                    let url_str = url_match.as_str();
+                    if self.is_valid_streaming_url(url_str) {
+                        return Some(url_str.to_string());
                     }
                 }
             }
