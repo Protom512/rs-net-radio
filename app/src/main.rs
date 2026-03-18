@@ -117,8 +117,8 @@ async fn run_batch_recording(input_path: PathBuf) -> Result<()> {
         .context("Failed to load configuration")?;
 
     // Parse program list
-    let programs =
-        parse_program_list(&input_path, config.recordings_dir.as_deref()).context("Failed to parse program list")?;
+    let programs = parse_program_list(&input_path, config.recordings_dir.as_deref())
+        .context("Failed to parse program list")?;
 
     // Create batch recorder
     let recorder = BatchRecorder::new(
