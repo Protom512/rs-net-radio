@@ -167,7 +167,21 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
         .context("Failed to create cron manager")?;
 
     // Add schedules
-    for schedule in cron_config.schedules {
+    for mut schedule in cron_config.schedules {
+        // Sanitize output_path to prevent path traversal
+        let mut sanitized_path = PathBuf::new();
+        for component in schedule.output_path.components() {
+            if let std::path::Component::Normal(c) = component {
+                if let Some(s) = c.to_str() {
+                    sanitized_path.push(record_lib::utils::sanitize_filename(s));
+                }
+            }
+        }
+        if sanitized_path.as_os_str().is_empty() {
+            sanitized_path.push("output.mp4");
+        }
+        schedule.output_path = sanitized_path;
+
         cron_manager
             .add_schedule(schedule)
             .await
@@ -230,7 +244,24 @@ fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
 
         let title = parts[0].to_string();
         let url = parts[1].to_string();
-        let output_path = PathBuf::from(parts[2]);
+
+        // Extract components and sanitize each to prevent path traversal
+        // Only allow relative paths without '..' to ensure recordings stay within the intended directory
+        let raw_output_path = std::path::Path::new(parts[2]);
+        let mut sanitized_path = PathBuf::new();
+        for component in raw_output_path.components() {
+            if let std::path::Component::Normal(c) = component {
+                if let Some(s) = c.to_str() {
+                    sanitized_path.push(record_lib::utils::sanitize_filename(s));
+                }
+            }
+        }
+
+        // Default filename if path was empty after sanitization
+        if sanitized_path.as_os_str().is_empty() {
+            sanitized_path.push("output.mp4");
+        }
+        let output_path = sanitized_path;
 
         programs.push(Program {
             title,
@@ -259,4 +290,38 @@ fn load_cron_config(path: &PathBuf) -> Result<record_lib::config::CronConfig> {
         .with_context(|| format!("Failed to parse cron config: {}", path.display()))?;
 
     Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempdir::TempDir;
+
+    #[test]
+    fn test_parse_program_list_sanitization() {
+        let dir = TempDir::new("test").unwrap();
+        let file_path = dir.path().join("test_list.txt");
+        let mut file = std::fs::File::create(&file_path).unwrap();
+        writeln!(file, "Malicious|http://example.com/stream|../../etc/passwd").unwrap();
+        writeln!(file, "Windows|http://example.com/stream|C:\\Windows\\System32\\drivers\\etc\\hosts").unwrap();
+        writeln!(file, "Normal|http://example.com/stream|program.mp4").unwrap();
+
+        let programs = parse_program_list(&file_path).unwrap();
+
+        assert_eq!(programs.len(), 3);
+
+        // ../../etc/passwd should become etc/passwd (it strips ../../)
+        assert_eq!(programs[0].output_path.to_str().unwrap(), "etc/passwd");
+
+        // C:\Windows\System32\drivers\etc\hosts should be sanitized
+        // On Unix, \ is just a character, so it's a single component
+        let hosts_path = programs[1].output_path.to_str().unwrap();
+        assert!(!hosts_path.contains("\\"));
+        assert!(!hosts_path.contains("/"));
+        assert!(hosts_path.contains("hosts"));
+
+        // normal filename should remain unchanged
+        assert_eq!(programs[2].output_path.to_str().unwrap(), "program.mp4");
+    }
 }
