@@ -304,7 +304,11 @@ mod tests {
         let file_path = dir.path().join("test_list.txt");
         let mut file = std::fs::File::create(&file_path).unwrap();
         writeln!(file, "Malicious|http://example.com/stream|../../etc/passwd").unwrap();
-        writeln!(file, "Windows|http://example.com/stream|C:\\Windows\\System32\\drivers\\etc\\hosts").unwrap();
+        writeln!(
+            file,
+            "Windows|http://example.com/stream|C:\\Windows\\System32\\drivers\\etc\\hosts"
+        )
+        .unwrap();
         writeln!(file, "Normal|http://example.com/stream|program.mp4").unwrap();
 
         let programs = parse_program_list(&file_path).unwrap();
