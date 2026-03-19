@@ -13,6 +13,7 @@ use record_lib::scheduler::CronManager;
 use record_lib::utils::{sanitize_filename, RecordError};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::time::Duration;
 use tracing::{error, info};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -117,8 +118,8 @@ async fn run_batch_recording(input_path: PathBuf) -> Result<()> {
         .context("Failed to load configuration")?;
 
     // Parse program list
-    let programs = parse_program_list(&input_path, config.recordings_dir.as_deref())
-        .context("Failed to parse program list")?;
+    let programs =
+        parse_program_list(&input_path, config.recordings_dir.as_deref()).context("Failed to parse program list")?;
 
     // Create batch recorder
     let recorder = BatchRecorder::new(
@@ -273,24 +274,38 @@ fn load_cron_config(path: &PathBuf) -> Result<record_lib::config::CronConfig> {
 /// This ensures that recordings are always saved within the intended directory
 /// and cannot overwrite arbitrary system files.
 fn sanitize_output_path(path: &Path, base_dir: Option<&Path>) -> PathBuf {
+    // Generate a unique fallback filename using a timestamp
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let fallback = format!("recording_{timestamp}.mp4");
+
     // We only allow the filename component to prevent path traversal
-    let filename = path
-        .file_name()
-        .and_then(|f| f.to_str())
-        .unwrap_or("output.mp4");
+    let filename = path.file_name().and_then(|f| f.to_str());
 
-    let sanitized = sanitize_filename(filename);
+    let safe_filename = match filename {
+        Some(f) => {
+            let sanitized = sanitize_filename(f);
+            if sanitized.is_empty() {
+                fallback
+            } else {
+                sanitized
+            }
+        }
+        None => fallback,
+    };
 
-    if path.to_string_lossy() != sanitized {
+    if path.to_string_lossy() != safe_filename {
         info!(
             "Sanitized output path to prevent traversal: {} -> {}",
             path.display(),
-            sanitized
+            safe_filename
         );
     }
 
     let mut result = base_dir.map_or_else(PathBuf::new, |d| d.to_path_buf());
-    result.push(sanitized);
+    result.push(safe_filename);
     result
 }
 
@@ -345,7 +360,9 @@ mod tests {
         let programs = parse_program_list(&path, None).unwrap();
 
         assert_eq!(programs.len(), 1);
-        assert_eq!(programs[0].output_path.to_str().unwrap(), "output.mp4");
+        let output_path = programs[0].output_path.to_str().unwrap();
+        assert!(output_path.starts_with("recording_"));
+        assert!(output_path.ends_with(".mp4"));
 
         std::fs::remove_file(path).unwrap();
     }
