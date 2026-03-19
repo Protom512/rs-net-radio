@@ -10,10 +10,11 @@ use record_lib::config::repository::ConfigRepository;
 use record_lib::config::FileConfigRepository;
 use record_lib::domain::service::Program;
 use record_lib::scheduler::CronManager;
-use record_lib::utils::RecordError;
-use std::path::PathBuf;
+use record_lib::utils::{sanitize_filename, RecordError};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{error, info};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -117,7 +118,8 @@ async fn run_batch_recording(input_path: PathBuf) -> Result<()> {
         .context("Failed to load configuration")?;
 
     // Parse program list
-    let programs = parse_program_list(&input_path).context("Failed to parse program list")?;
+    let programs = parse_program_list(&input_path, config.recordings_dir.as_deref())
+        .context("Failed to parse program list")?;
 
     // Create batch recorder
     let recorder = BatchRecorder::new(
@@ -167,7 +169,11 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
         .context("Failed to create cron manager")?;
 
     // Add schedules
-    for schedule in cron_config.schedules {
+    for mut schedule in cron_config.schedules {
+        // Sanitize output_path to prevent path traversal
+        schedule.output_path =
+            sanitize_output_path(&schedule.output_path, cron_config.recordings_dir.as_deref());
+
         cron_manager
             .add_schedule(schedule)
             .await
@@ -207,7 +213,7 @@ async fn run_cron_scheduling(config_path: PathBuf) -> Result<()> {
 /// # Errors
 ///
 /// Returns an error if the file cannot be read or parsed.
-fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
+fn parse_program_list(path: &PathBuf, base_dir: Option<&Path>) -> Result<Vec<Program>> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read program list: {}", path.display()))?;
 
@@ -230,7 +236,7 @@ fn parse_program_list(path: &PathBuf) -> Result<Vec<Program>> {
 
         let title = parts[0].to_string();
         let url = parts[1].to_string();
-        let output_path = PathBuf::from(parts[2]);
+        let output_path = sanitize_output_path(&PathBuf::from(parts[2]), base_dir);
 
         programs.push(Program {
             title,
@@ -259,4 +265,105 @@ fn load_cron_config(path: &PathBuf) -> Result<record_lib::config::CronConfig> {
         .with_context(|| format!("Failed to parse cron config: {}", path.display()))?;
 
     Ok(config)
+}
+
+/// Sanitizes an output path to prevent path traversal vulnerabilities.
+///
+/// This function extracts only the filename component of the provided path
+/// and applies additional sanitization to ensure it is a safe filename.
+/// This ensures that recordings are always saved within the intended directory
+/// and cannot overwrite arbitrary system files.
+fn sanitize_output_path(path: &Path, base_dir: Option<&Path>) -> PathBuf {
+    // Generate a unique fallback filename using a timestamp
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let fallback = format!("recording_{timestamp}.mp4");
+
+    // We only allow the filename component to prevent path traversal
+    let filename = path.file_name().and_then(|f| f.to_str());
+
+    let safe_filename = match filename {
+        Some(f) => {
+            let sanitized = sanitize_filename(f);
+            if sanitized.is_empty() {
+                fallback
+            } else {
+                sanitized
+            }
+        }
+        None => fallback,
+    };
+
+    if path.to_string_lossy() != safe_filename {
+        info!(
+            "Sanitized output path to prevent traversal: {} -> {}",
+            path.display(),
+            safe_filename
+        );
+    }
+
+    let mut result = base_dir.map_or_else(PathBuf::new, |d| d.to_path_buf());
+    result.push(safe_filename);
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn test_parse_program_list_sanitization() {
+        let mut path = std::env::temp_dir();
+        path.push("test_sanitization.txt");
+        let mut file = std::fs::File::create(&path).unwrap();
+        writeln!(file, "Test|http://example.com|../../etc/passwd").unwrap();
+        writeln!(file, "Test2|http://example.com|some/dir/file.mp4").unwrap();
+
+        let programs = parse_program_list(&path, None).unwrap();
+
+        assert_eq!(programs.len(), 2);
+        assert_eq!(programs[0].output_path.to_str().unwrap(), "passwd");
+        assert_eq!(programs[1].output_path.to_str().unwrap(), "file.mp4");
+
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_parse_program_list_with_base_dir() {
+        let mut path = std::env::temp_dir();
+        path.push("test_base_dir.txt");
+        let mut file = std::fs::File::create(&path).unwrap();
+        writeln!(file, "Test|http://example.com|../../etc/passwd").unwrap();
+
+        let base_dir = PathBuf::from("/trusted/recordings");
+        let programs = parse_program_list(&path, Some(&base_dir)).unwrap();
+
+        assert_eq!(programs.len(), 1);
+        assert_eq!(
+            programs[0].output_path.to_str().unwrap(),
+            "/trusted/recordings/passwd"
+        );
+
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_parse_program_list_invalid_filename() {
+        let mut path = std::env::temp_dir();
+        path.push("test_invalid.txt");
+        let mut file = std::fs::File::create(&path).unwrap();
+        writeln!(file, "Test|http://example.com|/").unwrap();
+
+        let programs = parse_program_list(&path, None).unwrap();
+
+        assert_eq!(programs.len(), 1);
+        let output_path = programs[0].output_path.to_str().unwrap();
+        assert!(output_path.starts_with("recording_"));
+        assert!(output_path.ends_with(".mp4"));
+
+        std::fs::remove_file(path).unwrap();
+    }
 }

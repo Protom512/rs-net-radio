@@ -401,7 +401,7 @@ impl ChStreamingUrl {
     pub fn init(ch: &str) -> ChStreamingUrl {
         let ch: String = ch.chars().filter(|c| c.is_alphanumeric()).collect();
         let client = crate::http::blocking_client();
-        let url = format!("http://radiko.jp/v2/station/stream_smh_multi/{ch}.xml");
+        let url = format!("https://radiko.jp/v2/station/stream_smh_multi/{ch}.xml");
         debug!("{:#?}", &url);
         match client.get(url).send() {
             Ok(m) => {
@@ -437,7 +437,7 @@ impl ChStreamingUrl {
 pub fn get_program_dom(ch: &str) -> Response {
     let ch: String = ch.chars().filter(|c| c.is_alphanumeric()).collect();
     let client = crate::http::blocking_client();
-    let url = format!("http://radiko.jp/v2/api/program/station/weekly?station_id={ch}");
+    let url = format!("https://radiko.jp/v2/api/program/station/weekly?station_id={ch}");
     info!("{:#?}", &url);
     match client.get(url).send() {
         Ok(m) => m,
