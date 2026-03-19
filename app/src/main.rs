@@ -13,8 +13,8 @@ use record_lib::scheduler::CronManager;
 use record_lib::utils::{sanitize_filename, RecordError};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{error, info};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -118,8 +118,8 @@ async fn run_batch_recording(input_path: PathBuf) -> Result<()> {
         .context("Failed to load configuration")?;
 
     // Parse program list
-    let programs =
-        parse_program_list(&input_path, config.recordings_dir.as_deref()).context("Failed to parse program list")?;
+    let programs = parse_program_list(&input_path, config.recordings_dir.as_deref())
+        .context("Failed to parse program list")?;
 
     // Create batch recorder
     let recorder = BatchRecorder::new(
