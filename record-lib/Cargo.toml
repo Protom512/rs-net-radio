@@ -30,7 +30,7 @@ tempdir = "0.3"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-cron-scheduler = "0.15"
-toml = "0.8"
+toml = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
