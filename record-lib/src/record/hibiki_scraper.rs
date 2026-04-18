@@ -124,11 +124,7 @@ impl HibikiScraper {
         document: &Html,
     ) -> Result<Option<String>, RecordError> {
         // Try to find streaming URL in various possible locations
-        if let Some(url) = self.try_extract_from_script(document)? {
-            info!("Successfully extracted streaming URL from script tags");
-            return Ok(Some(url));
-        }
-
+        // Prioritize attribute and iframe lookups as they are generally faster than script parsing
         if let Some(url) = self.try_extract_from_data_attribute(document)? {
             info!("Successfully extracted streaming URL from data attributes");
             return Ok(Some(url));
@@ -136,6 +132,11 @@ impl HibikiScraper {
 
         if let Some(url) = self.try_extract_from_iframe(document)? {
             info!("Successfully extracted streaming URL from iframe");
+            return Ok(Some(url));
+        }
+
+        if let Some(url) = self.try_extract_from_script(document)? {
+            info!("Successfully extracted streaming URL from script tags");
             return Ok(Some(url));
         }
 
