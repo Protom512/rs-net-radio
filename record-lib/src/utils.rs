@@ -175,7 +175,6 @@ pub fn http_error(status_code: u16, url: &str) -> RecordError {
 /// # Errors
 ///
 /// Returns `RecordError` if the response status indicates an error (4xx or 5xx).
-/// Note: For status codes 403 and 429, this function will exit the process with code 2.
 pub fn check_http_status(
     response: &reqwest::blocking::Response,
     url: &str,
@@ -184,18 +183,7 @@ pub fn check_http_status(
 
     if status.is_client_error() || status.is_server_error() {
         let status_code = status.as_u16();
-
-        // Handle specific error codes with custom exit behavior
-        match status_code {
-            403 | 429 => {
-                log::error!("HTTP {status_code} error for {url}. Access denied or rate limited.");
-                log::error!("This application will exit with code 2. Please try again later or check your access permissions.");
-                std::process::exit(2);
-            }
-            _ => {
-                return Err(http_error(status_code, url));
-            }
-        }
+        return Err(http_error(status_code, url));
     }
 
     Ok(())
@@ -215,8 +203,7 @@ pub fn html_parsing_error(url: &str, message: &str) -> RecordError {
 pub fn handle_html_parsing_error(url: &str, error: &str) -> RecordError {
     log::error!("HTML parsing failed for URL: {url}");
     log::error!("Error: {error}");
-    log::error!("This may indicate a change in the website structure. The application will exit with code 3.");
-    log::error!("Please report this issue so the scraper can be updated.");
+    log::warn!("This may indicate a change in the website structure. Please report this issue so the scraper can be updated.");
 
-    std::process::exit(3);
+    html_parsing_error(url, error)
 }

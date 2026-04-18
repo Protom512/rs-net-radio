@@ -8,7 +8,7 @@
 
 use mockito::{Mock, ServerGuard};
 use record_lib::record::hibiki_scraper::HibikiScraper;
-use record_lib::utils::{check_http_status, html_parsing_error, http_error, RecordError};
+use record_lib::utils::{check_http_status, html_parsing_error, RecordError};
 
 /// Creates a mock server that returns a specific HTTP status code
 fn create_status_mock(server: &mut ServerGuard, status_code: usize, path: &str) -> Mock {
@@ -230,17 +230,18 @@ fn test_http_status_check_with_403() {
 
     let client = reqwest::blocking::Client::new();
     let url = format!("{}/forbidden", server.url());
-    let _response = client.get(&url).send().expect("Failed to send request");
+    let response = client.get(&url).send().expect("Failed to send request");
 
-    // Note: check_http_status will call process::exit(2) for 403
-    // We can't actually test that in unit tests, but we can verify the error would be created
-    let error = http_error(403, &url);
-    match error {
-        RecordError::HttpError {
+    // check_http_status should now return Err instead of exiting
+    let result = check_http_status(&response, &url);
+    assert!(result.is_err(), "Should return error for 403 status");
+
+    match result {
+        Err(RecordError::HttpError {
             status_code,
             url: error_url,
             ..
-        } => {
+        }) => {
             assert_eq!(status_code, 403);
             assert_eq!(error_url, url);
         }
@@ -255,17 +256,18 @@ fn test_http_status_check_with_429() {
 
     let client = reqwest::blocking::Client::new();
     let url = format!("{}/rate-limited", server.url());
-    let _response = client.get(&url).send().expect("Failed to send request");
+    let response = client.get(&url).send().expect("Failed to send request");
 
-    // Note: check_http_status will call process::exit(2) for 429
-    // We can't actually test that in unit tests, but we can verify the error would be created
-    let error = http_error(429, &url);
-    match error {
-        RecordError::HttpError {
+    // check_http_status should now return Err instead of exiting
+    let result = check_http_status(&response, &url);
+    assert!(result.is_err(), "Should return error for 429 status");
+
+    match result {
+        Err(RecordError::HttpError {
             status_code,
             url: error_url,
             ..
-        } => {
+        }) => {
             assert_eq!(status_code, 429);
             assert_eq!(error_url, url);
         }
