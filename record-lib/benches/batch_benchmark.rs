@@ -4,11 +4,11 @@
 //! of batch recording functionality.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use record_lib::batch::BatchRecorder;
 use record_lib::domain::metadata::RecordingMetadata;
 use record_lib::domain::service::{Program, RecordService};
 use record_lib::utils::RecordError;
+use std::hint::black_box;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
