@@ -18,10 +18,9 @@ use reqwest::blocking::Response;
 use reqwest::header::USER_AGENT;
 use serde::Deserialize;
 use serde_json;
-use std::env::temp_dir;
+use tempdir::TempDir;
 
 extern crate m3u8_rs;
-extern crate tempdir;
 use fs_extra;
 
 use std::path::Path;
@@ -261,16 +260,13 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
         return Err(err_msg); // Or Ok(()), depending on whether this is considered an error or just a skippable item.
     }
 
-    let tmpdir = if let Some(m) = temp_dir().to_str() {
-        info!("working path: {m}");
-        m.to_string()
-    } else {
-        // This is a more critical system issue.
-        // For a library function, returning Err is better than panic.
-        let err_msg = "Cannot find tmpdir".to_string();
-        error!("{err_msg}");
-        return Err(err_msg);
-    };
+    let tmp_dir = TempDir::new("hibiki").map_err(|e| format!("Failed to create temp dir: {e}"))?;
+    let tmpdir = tmp_dir
+        .path()
+        .to_str()
+        .ok_or_else(|| "Cannot find tmpdir".to_string())?
+        .to_string();
+    info!("working path: {tmpdir}");
 
     let imagefile = format!("{}/{}_thumb.jpg", &tmpdir, sanitize_filename(&program.name));
     let mut img = match std::fs::File::create(&imagefile) {
@@ -431,7 +427,9 @@ async fn process_program_async(
     let episode = validate_episode(&api_response, program)?;
 
     let video = validate_video(episode, program)?;
-    let tmpdir = std::env::temp_dir()
+    let tmp_dir = TempDir::new("hibiki").map_err(|e| format!("Failed to create temp dir: {e}"))?;
+    let tmpdir = tmp_dir
+        .path()
         .to_str()
         .ok_or_else(|| "Cannot find tmpdir".to_string())?
         .to_string();

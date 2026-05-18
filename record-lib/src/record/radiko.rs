@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use fs_extra::file::CopyOptions;
 use serde_xml_rs::from_str;
 use std::borrow::Cow;
-use std::env::temp_dir;
+use tempdir::TempDir;
 
 #[cfg(unix)]
 use std::os::unix::process::ExitStatusExt;
@@ -258,7 +258,12 @@ impl RecordRadiko {
         // get archive path
         let archive_path = ensure_archive_path("radiko")?;
 
-        let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
+        let tmp_dir = TempDir::new("radiko").map_err(|e| RecordError::Io(e))?;
+        let tmpdir = tmp_dir
+            .path()
+            .to_str()
+            .ok_or(RecordError::TempDir)?
+            .to_string();
         info!("working path: {tmpdir}");
 
         // create file_name
