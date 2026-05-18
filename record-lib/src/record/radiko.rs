@@ -259,7 +259,11 @@ impl RecordRadiko {
         let archive_path = ensure_archive_path("radiko")?;
 
         let tmp_dir = TempDir::new("radiko").map_err(|e| RecordError::Io(e))?;
-        let tmpdir = tmp_dir.path().to_str().ok_or(RecordError::TempDir)?.to_string();
+        let tmpdir = tmp_dir
+            .path()
+            .to_str()
+            .ok_or(RecordError::TempDir)?
+            .to_string();
         info!("working path: {tmpdir}");
 
         // create file_name

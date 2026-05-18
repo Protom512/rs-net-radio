@@ -80,7 +80,11 @@ impl OnsenProgram {
         let archive_path = ensure_archive_path("onsen")?;
 
         let tmp_dir = TempDir::new("onsen").map_err(|e| RecordError::Io(e))?;
-        let tmpdir = tmp_dir.path().to_str().ok_or(RecordError::TempDir)?.to_string();
+        let tmpdir = tmp_dir
+            .path()
+            .to_str()
+            .ok_or(RecordError::TempDir)?
+            .to_string();
         info!("working path: {tmpdir}");
 
         for contents in &self.contents {
