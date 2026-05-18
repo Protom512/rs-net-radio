@@ -123,12 +123,8 @@ impl HibikiScraper {
         &self,
         document: &Html,
     ) -> Result<Option<String>, RecordError> {
-        // Try to find streaming URL in various possible locations
-        if let Some(url) = self.try_extract_from_script(document)? {
-            info!("Successfully extracted streaming URL from script tags");
-            return Ok(Some(url));
-        }
-
+        // Try various extraction methods, prioritizing faster ones (attribute-based)
+        // over more expensive ones (script tag regex matching).
         if let Some(url) = self.try_extract_from_data_attribute(document)? {
             info!("Successfully extracted streaming URL from data attributes");
             return Ok(Some(url));
@@ -136,6 +132,11 @@ impl HibikiScraper {
 
         if let Some(url) = self.try_extract_from_iframe(document)? {
             info!("Successfully extracted streaming URL from iframe");
+            return Ok(Some(url));
+        }
+
+        if let Some(url) = self.try_extract_from_script(document)? {
+            info!("Successfully extracted streaming URL from script tags");
             return Ok(Some(url));
         }
 
@@ -161,11 +162,27 @@ impl HibikiScraper {
             .get_or_init(|| Selector::parse("script").expect("Failed to parse script selector"));
 
         for element in document.select(script_selector) {
-            let script_content = element.text().collect::<Vec<_>>().join(" ");
-
-            // Look for common patterns in Hibiki Radio pages
-            if let Some(url) = self.extract_url_from_text(&script_content) {
-                return Ok(Some(url));
+            // Efficiency: Check if there's only one text node to avoid join() and allocation.
+            let mut text_nodes = element.text();
+            if let Some(first_text) = text_nodes.next() {
+                if let Some(second_text) = text_nodes.next() {
+                    // Multiple text nodes, need to join.
+                    let mut script_content = first_text.to_string();
+                    script_content.push(' ');
+                    script_content.push_str(second_text);
+                    for text in text_nodes {
+                        script_content.push(' ');
+                        script_content.push_str(text);
+                    }
+                    if let Some(url) = self.extract_url_from_text(&script_content) {
+                        return Ok(Some(url));
+                    }
+                } else {
+                    // Only one text node, process directly.
+                    if let Some(url) = self.extract_url_from_text(first_text) {
+                        return Ok(Some(url));
+                    }
+                }
             }
         }
 
@@ -189,33 +206,24 @@ impl HibikiScraper {
         &self,
         document: &Html,
     ) -> Result<Option<String>, RecordError> {
-        // Try various data attributes that might contain the streaming URL
-        static SELECTORS: OnceLock<Vec<Selector>> = OnceLock::new();
-        let selectors = SELECTORS.get_or_init(|| {
-            [
-                "[data-streaming-url]",
-                "[data-video-url]",
-                "[data-movie-url]",
-                "[data-url]",
-            ]
-            .iter()
-            .map(|s| Selector::parse(s).expect("Failed to parse data selector"))
-            .collect()
+        // Efficiency: Use a single comma-separated selector to reduce document traversals.
+        static DATA_SELECTOR: OnceLock<Selector> = OnceLock::new();
+        let data_selector = DATA_SELECTOR.get_or_init(|| {
+            Selector::parse("[data-streaming-url], [data-video-url], [data-movie-url], [data-url]")
+                .expect("Failed to parse combined data selector")
         });
 
-        for selector in selectors {
-            for element in document.select(selector) {
-                if let Some(url) = element
-                    .value()
-                    .attr("data-streaming-url")
-                    .or(element.value().attr("data-video-url"))
-                    .or(element.value().attr("data-movie-url"))
-                    .or(element.value().attr("data-url"))
-                {
-                    if self.is_valid_streaming_url(url) {
-                        debug!("Found URL in data attribute: {}", url);
-                        return Ok(Some(url.to_string()));
-                    }
+        for element in document.select(data_selector) {
+            if let Some(url) = element
+                .value()
+                .attr("data-streaming-url")
+                .or(element.value().attr("data-video-url"))
+                .or(element.value().attr("data-movie-url"))
+                .or(element.value().attr("data-url"))
+            {
+                if self.is_valid_streaming_url(url) {
+                    debug!("Found URL in data attribute: {}", url);
+                    return Ok(Some(url.to_string()));
                 }
             }
         }
@@ -263,6 +271,12 @@ impl HibikiScraper {
     ///
     /// The URL if found and valid.
     fn extract_url_from_text(&self, text: &str) -> Option<String> {
+        // Performance optimization: Quick check for "http" before running expensive regex.
+        // All our patterns look for absolute URLs.
+        if !text.contains("http") {
+            return None;
+        }
+
         // Common patterns for streaming URLs in Hibiki Radio pages
         static REGEX_PATTERNS: OnceLock<Vec<(Regex, usize)>> = OnceLock::new();
         let patterns = REGEX_PATTERNS.get_or_init(|| {
