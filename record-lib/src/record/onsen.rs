@@ -5,8 +5,8 @@ use fs_extra;
 use fs_extra::file::CopyOptions;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-use std::env::temp_dir;
 use std::path::Path;
+use tempdir::TempDir;
 
 /// Represents the contents of an Onsen program episode.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -79,7 +79,8 @@ impl OnsenProgram {
         // Changed signature
         let archive_path = ensure_archive_path("onsen")?;
 
-        let tmpdir = temp_dir().to_str().ok_or(RecordError::TempDir)?.to_string();
+        let tmp_dir = TempDir::new("onsen").map_err(|e| RecordError::Io(e))?;
+        let tmpdir = tmp_dir.path().to_str().ok_or(RecordError::TempDir)?.to_string();
         info!("working path: {tmpdir}");
 
         for contents in &self.contents {
