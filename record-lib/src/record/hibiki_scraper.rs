@@ -213,18 +213,26 @@ impl HibikiScraper {
                 .expect("Failed to parse combined data selector")
         });
 
+        const ATTRS: &[&str] = &[
+            "data-streaming-url",
+            "data-video-url",
+            "data-movie-url",
+            "data-url",
+        ];
+
         for element in document.select(data_selector) {
-            if let Some(url) = element
-                .value()
-                .attr("data-streaming-url")
-                .or(element.value().attr("data-video-url"))
-                .or(element.value().attr("data-movie-url"))
-                .or(element.value().attr("data-url"))
-            {
-                if self.is_valid_streaming_url(url) {
-                    debug!("Found URL in data attribute: {}", url);
-                    return Ok(Some(url.to_string()));
-                }
+            // Robustness: Iterate through attributes and return the first valid streaming URL found.
+            // This ensures we don't get stuck on an invalid URL if a valid one exists in another attribute.
+            let found_url = ATTRS.iter().find_map(|&attr| {
+                element
+                    .value()
+                    .attr(attr)
+                    .filter(|url| self.is_valid_streaming_url(url))
+            });
+
+            if let Some(url) = found_url {
+                debug!("Found URL in data attribute: {}", url);
+                return Ok(Some(url.to_string()));
             }
         }
 
@@ -429,6 +437,23 @@ mod tests {
         "#;
 
         let document = Html::parse_document(html_with_data_attr);
+        let result = scraper.try_extract_from_data_attribute(&document);
+
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert!(url.is_some());
+        assert_eq!(url.unwrap(), "https://example.com/video.m3u8");
+    }
+
+    #[test]
+    fn test_extract_url_from_multiple_data_attributes_with_invalid() {
+        let scraper = HibikiScraper::new().expect("Failed to create scraper for test");
+
+        let html = r#"
+        <div data-streaming-url="invalid" data-url="https://example.com/video.m3u8"></div>
+        "#;
+
+        let document = Html::parse_document(html);
         let result = scraper.try_extract_from_data_attribute(&document);
 
         assert!(result.is_ok());
