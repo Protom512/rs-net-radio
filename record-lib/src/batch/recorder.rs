@@ -11,6 +11,13 @@ use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
+const GREEN: &str = "\x1b[32m";
+const RED: &str = "\x1b[31m";
+const YELLOW: &str = "\x1b[33m";
+const CYAN: &str = "\x1b[36m";
+const RESET: &str = "\x1b[0m";
+const BOLD: &str = "\x1b[1m";
+
 /// Batch recorder for parallel recording tasks.
 ///
 /// This struct manages the parallel recording of multiple programs,
@@ -83,7 +90,7 @@ impl BatchRecorder {
         progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template(
-                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}",
                 )
                 .unwrap()
                 .progress_chars("#>-"),
@@ -229,21 +236,32 @@ impl BatchSummary {
     /// This method displays a comprehensive summary of the batch recording operation,
     /// including success/failure counts, duration, and detailed failure information.
     pub fn print_summary(&self) {
-        println!("\n{}", "=".repeat(60));
-        println!("バッチ録音サマリー");
-        println!("{}", "=".repeat(60));
+        let header_color = CYAN;
+        let success_color = GREEN;
+        let failure_color = RED;
+        let warning_color = YELLOW;
+        let bold = BOLD;
+        let reset = RESET;
+
+        println!("\n{header_color}{bold}{}{reset}", "=".repeat(60));
+        println!("{header_color}{bold}バッチ録音サマリー{reset}");
+        println!("{header_color}{bold}{}{reset}", "=".repeat(60));
 
         if self.total_count == 0 {
             println!("\n録音対象の番組がありませんでした。");
-            println!("{}", "=".repeat(60));
+            println!("{header_color}{bold}{}{reset}", "=".repeat(60));
             return;
         }
 
         // 基本統計
-        println!("\n📊 基本統計:");
+        println!("\n{header_color}{bold}📊 基本統計:{reset}");
         println!("  総件数: {}", self.total_count);
-        println!("  成功: {} ✅", self.success_count);
-        println!("  失敗: {} ❌", self.failure_count);
+        println!("  成功: {success_color}{} ✅{reset}", self.success_count);
+        if self.failure_count > 0 {
+            println!("  失敗: {failure_color}{} ❌{reset}", self.failure_count);
+        } else {
+            println!("  失敗: {} ❌", self.failure_count);
+        }
 
         // 成功率
         #[expect(
@@ -252,11 +270,18 @@ impl BatchSummary {
         )]
         if self.total_count > 0 {
             let success_rate = (self.success_count as f64 / self.total_count as f64) * 100.0;
-            println!("  成功率: {success_rate:.1}%");
+            let rate_color = if success_rate >= 100.0 {
+                success_color
+            } else if success_rate >= 80.0 {
+                warning_color
+            } else {
+                failure_color
+            };
+            println!("  成功率: {rate_color}{success_rate:.1}%{reset}");
         }
 
         // 処理時間
-        println!("\n⏱️  処理時間:");
+        println!("\n{header_color}{bold}⏱️  処理時間:{reset}");
         println!("  総時間: {:.2}秒", self.duration.as_secs_f64());
         #[expect(
             clippy::cast_precision_loss,
@@ -269,22 +294,25 @@ impl BatchSummary {
 
         // 失敗詳細
         if !self.failures.is_empty() {
-            println!("\n❌ 失敗詳細:");
+            println!("\n{failure_color}{bold}❌ 失敗詳細:{reset}");
             for (i, (title, error)) in self.failures.iter().enumerate() {
                 println!("  {}. {title}", i + 1);
                 println!("     エラー: {error}");
             }
         }
 
-        println!("\n{}", "=".repeat(60));
+        println!("\n{header_color}{bold}{}{reset}", "=".repeat(60));
 
         // 終了ステータス
         if self.failure_count > 0 {
-            println!("⚠️  警告: {}件の録音が失敗しました", self.failure_count);
+            println!(
+                "{warning_color}{bold}⚠️  警告: {}件の録音が失敗しました{reset}",
+                self.failure_count
+            );
         } else {
-            println!("✅ すべての録音が正常に完了しました");
+            println!("{success_color}{bold}✅ すべての録音が正常に完了しました{reset}");
         }
-        println!("{}", "=".repeat(60));
+        println!("{header_color}{bold}{}{reset}", "=".repeat(60));
     }
 
     /// Returns true if all recordings succeeded.
