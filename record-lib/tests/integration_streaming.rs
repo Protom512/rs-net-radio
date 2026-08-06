@@ -183,16 +183,22 @@ async fn test_chunk_processing_with_partial_last_chunk() {
 #[tokio::test]
 async fn test_chunk_processing_memory_limit() {
     let output_path = temp_test_path("memory_limit");
-    let memory_monitor = Arc::new(MemoryMonitor::new(CHUNK_SIZE * 5)); // Very low limit
+    // Live-memory cap smaller than a single chunk: the first chunk read must
+    // exceed the cap and abort. Cumulative throughput no longer trips the limit
+    // (see test_long_stream_does_not_abort_on_cumulative_bytes).
+    let memory_monitor = Arc::new(MemoryMonitor::new(CHUNK_SIZE / 2));
     let processor = ChunkProcessor::new(&output_path, CHUNK_SIZE, memory_monitor);
 
-    // Create test data that exceeds limit
+    // Create test data that exceeds the per-chunk live-memory cap.
     let test_data = create_test_data(CHUNK_SIZE * 10);
     let reader = Cursor::new(test_data);
 
     let result = processor.process_reader(reader).await;
 
-    assert!(result.is_err(), "Should fail when memory limit is exceeded");
+    assert!(
+        result.is_err(),
+        "Should fail when a single chunk exceeds the live-memory limit"
+    );
 
     // Cleanup
     let _ = std::fs::remove_file(&output_path);

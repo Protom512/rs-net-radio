@@ -378,28 +378,23 @@ fn process_program(program: &HibikiJson, archive_base_path: &str) -> Result<(), 
 ///
 /// This function fetches the list of programs, checks for new episodes,
 /// and downloads them using ffmpeg.
-pub fn record() {
+pub fn record() -> Result<(), RecordError> {
     // Get the base archive path from environment variable. This is critical.
-    let archive_base_path = match ensure_archive_path("hibiki") {
-        Ok(path) => path,
-        Err(e) => {
-            error!("Failed to get archive base path: {e}");
-            std::process::exit(5);
-        }
-    };
+    let archive_base_path = ensure_archive_path("hibiki").map_err(|e| {
+        error!("Failed to get archive base path: {e}");
+        e
+    })?;
 
     let page = 1; // Assuming page is fixed at 1 as per original logic
     let programs_url =
         format!("https://vcms-api.hibiki-radio.jp/api/v1/programs?limit=50&page={page}");
 
     info!("Fetching program list from {programs_url}");
-    let programs: Vec<HibikiJson> = match fetch_and_parse(&programs_url) {
-        Ok(p) => p,
-        Err(e) => {
-            error!("Failed to fetch or parse program list: {e}");
-            std::process::exit(1);
-        }
-    };
+    let programs: Vec<HibikiJson> = fetch_and_parse(&programs_url).map_err(|e| {
+        let msg = format!("Failed to fetch or parse program list: {e}");
+        error!("{msg}");
+        RecordError::Other(msg)
+    })?;
 
     info!(
         "Fetched {} programs. Starting processing...",
@@ -413,6 +408,7 @@ pub fn record() {
         }
     }
     info!("Finished processing all programs.");
+    Ok(())
 }
 
 /// 非同期で単一プログラムを処理
@@ -680,21 +676,25 @@ fn move_to_final_path(working_path: &str, output_path: &str) -> Result<(), Strin
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     hibiki::record_parallel().await;
+///     if let Err(e) = hibiki::record_parallel().await {
+///         eprintln!("hibiki recording failed: {e}");
+///     }
 /// }
 /// ```
+///
+/// # Errors
+///
+/// Returns `RecordError` if the archive path cannot be obtained or the program
+/// list cannot be fetched/parsed. Per-program failures are logged and skipped.
 ///
 /// # Panics
 ///
 /// Panics if semaphore permit acquisition fails (unwraps internally).
-pub async fn record_parallel() {
-    let archive_base_path = match ensure_archive_path("hibiki") {
-        Ok(path) => path,
-        Err(e) => {
-            error!("Failed to get archive base path: {e}");
-            std::process::exit(5);
-        }
-    };
+pub async fn record_parallel() -> Result<(), RecordError> {
+    let archive_base_path = ensure_archive_path("hibiki").map_err(|e| {
+        error!("Failed to get archive base path: {e}");
+        e
+    })?;
 
     let page = 1;
     let programs_url =
@@ -720,27 +720,31 @@ pub async fn record_parallel() {
     let programs: Vec<HibikiJson> = match response {
         Ok(resp) => {
             if !resp.status().is_success() {
-                error!("Failed to fetch program list: HTTP {}", resp.status());
-                std::process::exit(1);
+                let msg = format!("Failed to fetch program list: HTTP {}", resp.status());
+                error!("{msg}");
+                return Err(RecordError::Other(msg));
             }
             let text = match resp.text().await {
                 Ok(t) => t,
                 Err(e) => {
-                    error!("Failed to read response: {e}");
-                    std::process::exit(1);
+                    let msg = format!("Failed to read response: {e}");
+                    error!("{msg}");
+                    return Err(RecordError::Other(msg));
                 }
             };
             match serde_json::from_str::<Vec<HibikiJson>>(&text) {
                 Ok(p) => p,
                 Err(e) => {
-                    error!("Failed to parse program list JSON: {e}");
-                    std::process::exit(1);
+                    let msg = format!("Failed to parse program list JSON: {e}");
+                    error!("{msg}");
+                    return Err(RecordError::Other(msg));
                 }
             }
         }
         Err(e) => {
-            error!("Failed to fetch program list: {e}");
-            std::process::exit(1);
+            let msg = format!("Failed to fetch program list: {e}");
+            error!("{msg}");
+            return Err(RecordError::Other(msg));
         }
     };
 
@@ -778,4 +782,5 @@ pub async fn record_parallel() {
     }
 
     info!("Finished processing all programs.");
+    Ok(())
 }
