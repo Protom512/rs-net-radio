@@ -126,6 +126,10 @@ impl ChunkProcessor {
                 .update_usage(chunk.len())
                 .context("Failed to update memory usage")?;
 
+            // The chunk is now on disk; release its bytes so `current_usage`
+            // reflects live in-flight memory, not cumulative throughput.
+            self.memory_monitor.release(chunk.len());
+
             debug!(
                 "Downloaded {} / {} bytes ({:.1}%)",
                 downloaded_bytes,
@@ -235,6 +239,10 @@ impl ChunkProcessor {
             self.memory_monitor
                 .update_usage(bytes_read)
                 .context("Failed to update memory usage")?;
+
+            // The chunk is flushed to disk; release it so live usage stays
+            // bounded and long streams do not spuriously trip the limit.
+            self.memory_monitor.release(bytes_read);
 
             total_bytes += bytes_read as u64;
             chunk_count += 1;
@@ -650,5 +658,40 @@ mod tests {
 
         // Clean up
         let _ = std::fs::remove_file(&output_path);
+    }
+
+    /// F14/F23 回帰テスト: 累積バイト数がメモリ上限を大きく超えても、
+    /// ライブ（チャンク単位）使用量が上限内であれば長時間ストリームは中断されないこと。
+    /// 従来コードでは `current_usage` が累積で単調増加し、上限到達で確定的中断していた。
+    #[tokio::test]
+    async fn test_long_stream_does_not_abort_on_cumulative_bytes() {
+        let temp_dir = std::env::temp_dir();
+        let output_path = temp_dir.join("test_long_stream_regression.mp3");
+
+        // メモリ上限は小さく（チャンク2個分）設定するが、
+        // 累計では遙かに超えるデータを流す。
+        let memory_monitor = Arc::new(MemoryMonitor::new(CHUNK_SIZE * 2));
+        memory_monitor.start().expect("Failed to start monitoring");
+
+        let processor = ChunkProcessor::new(&output_path, CHUNK_SIZE, memory_monitor.clone());
+
+        // 累計 100 チャンク = CHUNK_SIZE*100 バイト（上限 CHUNK_SIZE*2 を大幅超過）
+        let test_data = vec![0u8; CHUNK_SIZE * 100];
+        let reader = Cursor::new(test_data);
+
+        let result = processor.process_reader(reader).await;
+        assert!(
+            result.is_ok(),
+            "long stream should not abort when live memory is bounded: {:?}",
+            result.err()
+        );
+
+        let stats = result.expect("process_reader should succeed");
+        assert_eq!(stats.bytes_written, (CHUNK_SIZE * 100) as u64);
+        assert_eq!(stats.chunks_processed, 100);
+
+        // Clean up
+        let _ = std::fs::remove_file(&output_path);
+        memory_monitor.stop();
     }
 }
