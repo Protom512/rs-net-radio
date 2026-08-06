@@ -2,8 +2,24 @@ use crate::utils::RecordError;
 use log::{debug, error, info};
 use std::process::{Command, ExitStatus};
 use std::time::Duration;
+use tokio::io::AsyncReadExt;
 use tokio::process::Command as TokioCommand;
 use tokio::time::timeout;
+
+/// Reads an optional child pipe to end, returning an empty buffer when absent.
+///
+/// Used to drain `stdout`/`stderr` independently of `Child` ownership so the
+/// child process can still be killed/reaped when a timeout fires.
+async fn read_pipe_to_vec<R>(pipe: Option<R>) -> Vec<u8>
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    let mut buf = Vec::new();
+    if let Some(mut p) = pipe {
+        let _ = p.read_to_end(&mut buf).await;
+    }
+    buf
+}
 
 /// 外部プロセスの実行結果を保持する構造体
 pub struct ProcessResult {
@@ -25,33 +41,49 @@ pub async fn execute_command(
 ) -> Result<ProcessResult, RecordError> {
     info!("Executing command: {} {}", cmd_name, args.join(" "));
 
-    let child = TokioCommand::new(cmd_name)
+    // `kill_on_drop(true)` is the safety net: if this future is ever dropped
+    // (timeout, cancellation, or panic) the OS process is killed instead of
+    // being orphaned. We additionally reap it explicitly on timeout below so
+    // no zombie remains.
+    let mut child = TokioCommand::new(cmd_name)
         .args(args)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
         .spawn()
         .map_err(RecordError::Io)?;
 
-    let result = if let Some(d) = timeout_duration {
-        match timeout(d, child.wait_with_output()).await {
-            Ok(Ok(output)) => Ok(ProcessResult {
-                status: output.status,
-                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-            }),
-            Ok(Err(e)) => Err(RecordError::Io(e)),
-            Err(_) => Err(RecordError::Other(format!(
-                "Command {cmd_name} timed out after {d:?}"
-            ))),
+    // Drain stdout/stderr in separate tasks so `child` stays exclusively ours
+    // to kill/reap when a timeout fires.
+    let stdout_task = tokio::spawn(read_pipe_to_vec(child.stdout.take()));
+    let stderr_task = tokio::spawn(read_pipe_to_vec(child.stderr.take()));
+
+    let status = if let Some(d) = timeout_duration {
+        match timeout(d, child.wait()).await {
+            Ok(s) => s,
+            Err(_elapsed) => {
+                // Timeout: kill and reap so ffmpeg does not keep consuming the
+                // stream/network/disk as an orphan or zombie.
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+                return Err(RecordError::Other(format!(
+                    "Command {cmd_name} timed out after {d:?}"
+                )));
+            }
         }
     } else {
-        let output = child.wait_with_output().await.map_err(RecordError::Io)?;
-        Ok(ProcessResult {
-            status: output.status,
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        })
+        child.wait().await
     };
+
+    let status = status.map_err(RecordError::Io)?;
+    let stdout_bytes = stdout_task.await.unwrap_or_default();
+    let stderr_bytes = stderr_task.await.unwrap_or_default();
+
+    let result = Ok(ProcessResult {
+        status,
+        stdout: String::from_utf8_lossy(&stdout_bytes).to_string(),
+        stderr: String::from_utf8_lossy(&stderr_bytes).to_string(),
+    });
 
     match &result {
         Ok(res) if !res.status.success() => {
@@ -457,5 +489,45 @@ impl FfmpegOutput {
     #[must_use]
     pub fn exit_code(&self) -> Option<i32> {
         self.output.status.code()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 正常系: 短時間で終了するコマンドが成功すること（パイプ読み取り含む）。
+    /// クロスプラットフォームで実行され、再構成後の基本パスを検証する。
+    #[tokio::test]
+    async fn test_execute_command_succeeds_fast_command() {
+        #[cfg(unix)]
+        let (cmd, args): (&str, Vec<&str>) = ("true", vec![]);
+        #[cfg(windows)]
+        let (cmd, args): (&str, Vec<&str>) = ("cmd", vec!["/C", "exit", "0"]);
+
+        let result = execute_command(cmd, &args, None).await;
+        assert!(
+            result.is_ok(),
+            "fast command should succeed: {:?}",
+            result.err()
+        );
+        let res = result.expect("fast command succeeds");
+        assert!(res.status.success());
+    }
+
+    /// F22 回帰テスト (Unix): タイムアウト時に子プロセスが強制終了されること。
+    /// `sleep 30` を 100ms タイムアウトで実行し、タイムアウトエラーが返ることを検証する。
+    /// kill_on_drop + start_kill によりプロセスは残留しない。
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_execute_command_kills_child_on_timeout() {
+        let result = execute_command("sleep", &["30"], Some(Duration::from_millis(100))).await;
+
+        let err = result.expect_err("sleep 30 with 100ms timeout must time out");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("timed out"),
+            "expected timeout error, got: {msg}"
+        );
     }
 }

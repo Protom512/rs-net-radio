@@ -345,15 +345,6 @@ impl HibikiScraper {
     }
 }
 
-impl Default for HibikiScraper {
-    fn default() -> Self {
-        Self::new().unwrap_or_else(|_| {
-            log::error!("Failed to create HibikiScraper with default configuration");
-            std::process::exit(1);
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

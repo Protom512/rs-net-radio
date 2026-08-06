@@ -174,8 +174,11 @@ pub fn http_error(status_code: u16, url: &str) -> RecordError {
 ///
 /// # Errors
 ///
-/// Returns `RecordError` if the response status indicates an error (4xx or 5xx).
-/// Note: For status codes 403 and 429, this function will exit the process with code 2.
+/// Returns `RecordError` if the response status indicates an error (4xx or 5xx),
+/// including 403 (forbidden) and 429 (rate limited). The decision to terminate
+/// the process on a fatal status belongs to the application boundary, not the
+/// library — callers receive a structured `HttpError` and may map it to an exit
+/// code there.
 pub fn check_http_status(
     response: &reqwest::blocking::Response,
     url: &str,
@@ -184,18 +187,11 @@ pub fn check_http_status(
 
     if status.is_client_error() || status.is_server_error() {
         let status_code = status.as_u16();
-
-        // Handle specific error codes with custom exit behavior
-        match status_code {
-            403 | 429 => {
-                log::error!("HTTP {status_code} error for {url}. Access denied or rate limited.");
-                log::error!("This application will exit with code 2. Please try again later or check your access permissions.");
-                std::process::exit(2);
-            }
-            _ => {
-                return Err(http_error(status_code, url));
-            }
+        if status_code == 403 || status_code == 429 {
+            log::error!("HTTP {status_code} error for {url}. Access denied or rate limited.");
+            log::error!("Please try again later or check your access permissions.");
         }
+        return Err(http_error(status_code, url));
     }
 
     Ok(())
@@ -210,13 +206,16 @@ pub fn html_parsing_error(url: &str, message: &str) -> RecordError {
     }
 }
 
-/// Checks for HTML parsing errors and handles site structure changes.
+/// Builds an HTML parsing error and logs context for site structure changes.
+///
+/// Returns a structured `HtmlParsingError`; the decision to terminate the
+/// process belongs to the application boundary, not the library.
 #[must_use]
 pub fn handle_html_parsing_error(url: &str, error: &str) -> RecordError {
     log::error!("HTML parsing failed for URL: {url}");
     log::error!("Error: {error}");
-    log::error!("This may indicate a change in the website structure. The application will exit with code 3.");
+    log::error!("This may indicate a change in the website structure.");
     log::error!("Please report this issue so the scraper can be updated.");
 
-    std::process::exit(3);
+    html_parsing_error(url, error)
 }

@@ -342,9 +342,11 @@ mod tests {
         let programs = parse_program_list(&path, Some(&base_dir)).unwrap();
 
         assert_eq!(programs.len(), 1);
+        // Compare as paths (not strings) so this is correct on both Unix and
+        // Windows path separators.
         assert_eq!(
-            programs[0].output_path.to_str().unwrap(),
-            "/trusted/recordings/passwd"
+            programs[0].output_path,
+            PathBuf::from("/trusted/recordings").join("passwd")
         );
 
         std::fs::remove_file(path).unwrap();

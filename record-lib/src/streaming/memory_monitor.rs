@@ -223,7 +223,37 @@ impl MemoryMonitor {
     /// # Errors
     ///
     /// Returns an error if the update would exceed the memory limit.
+    ///
+    /// # Note
+    ///
+    /// `current_usage` tracks *live* in-flight memory, not cumulative
+    /// throughput. Callers that flush chunks to disk should pair each
+    /// `update_usage` with [`release`](Self::release) so long streams do not
+    /// spuriously trip the limit. Total throughput is accumulated separately
+    /// in `total_bytes`.
     pub fn update_usage(&self, bytes: usize) -> Result<()> {
+        // Check the prospective usage BEFORE mutating so a rejected chunk does
+        // not leave the counter permanently above the limit (which would fail
+        // every subsequent chunk).
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "atomic values are expected to fit in usize on target platforms"
+        )]
+        let current = self.current_usage.load(Ordering::Relaxed) as usize;
+        let prospective = current.saturating_add(bytes);
+
+        if prospective > self.memory_limit {
+            warn!(
+                "Memory limit exceeded: {} bytes > {} bytes",
+                prospective, self.memory_limit
+            );
+            return Err(anyhow::anyhow!(
+                "Memory limit exceeded: {} bytes > {} bytes",
+                prospective,
+                self.memory_limit
+            ));
+        }
+
         self.current_usage
             .fetch_add(bytes as u64, Ordering::Relaxed);
         self.total_bytes.fetch_add(bytes as u64, Ordering::Relaxed);
@@ -235,7 +265,33 @@ impl MemoryMonitor {
             self.chunk_count.load(Ordering::Relaxed)
         );
 
-        self.check_memory_limit()
+        // Surface the 80% warning. Cannot error here: we already bounded usage
+        // above, so `check_memory_limit` only emits the approaching-limit warn.
+        let _ = self.check_memory_limit();
+        Ok(())
+    }
+
+    /// Releases bytes from the current live usage.
+    ///
+    /// Call this after a chunk has been flushed to disk so that `current_usage`
+    /// tracks *live* in-flight memory rather than the cumulative bytes ever
+    /// seen. Without this, long streams monotonically increase `current_usage`
+    /// and spuriously trip the memory limit. Total throughput remains recorded
+    /// in `total_bytes`. Saturates at zero (never underflows/wraps).
+    pub fn release(&self, bytes: usize) {
+        // Compare-exchange loop guards against underflow (and the resulting
+        // wrap to a huge value) if releases ever exceed tracked usage.
+        loop {
+            let current = self.current_usage.load(Ordering::Relaxed);
+            let next = current.saturating_sub(bytes as u64);
+            if self
+                .current_usage
+                .compare_exchange(current, next, Ordering::Relaxed, Ordering::Relaxed)
+                .is_ok()
+            {
+                break;
+            }
+        }
     }
 
     /// Resets the current memory usage to zero.
@@ -495,13 +551,45 @@ mod tests {
 
         monitor.update_usage(500).unwrap();
 
-        // This should fail and ensure resources are tracked
+        // This should fail and ensure resources are tracked. Because the limit
+        // is now checked *before* mutating, the rejected chunk does NOT bump
+        // chunk_count and does NOT corrupt the counter (current stays at 500).
         let result = monitor.update_usage(600);
         assert!(result.is_err());
 
-        // Verify monitoring state is still consistent
+        // Verify monitoring state is still consistent: only the accepted chunk
+        // counts, and usage was not permanently driven over the limit.
         let stats = monitor.get_stats();
-        assert_eq!(stats.chunks_processed, 2);
+        assert_eq!(stats.chunks_processed, 1);
+        assert_eq!(monitor.current_usage(), 500);
+    }
+
+    #[test]
+    fn test_release_decreases_live_usage() {
+        let monitor = MemoryMonitor::new(1024);
+        monitor.start().unwrap();
+
+        monitor.update_usage(512).unwrap();
+        assert_eq!(monitor.current_usage(), 512);
+
+        // Releasing the flushed chunk bounds live memory.
+        monitor.release(512);
+        assert_eq!(monitor.current_usage(), 0);
+
+        // Cumulative throughput is unaffected.
+        assert_eq!(monitor.get_stats().bytes_written, 512);
+    }
+
+    #[test]
+    fn test_release_does_not_underflow() {
+        let monitor = MemoryMonitor::new(1024);
+        monitor.start().unwrap();
+
+        monitor.update_usage(100).unwrap();
+        monitor.release(100);
+        // Releasing more than tracked saturates at 0 instead of wrapping.
+        monitor.release(1_000_000);
+        assert_eq!(monitor.current_usage(), 0);
     }
 
     #[test]
