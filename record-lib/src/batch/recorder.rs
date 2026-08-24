@@ -72,7 +72,11 @@ impl BatchRecorder {
             });
         }
 
-        assert!(self.max_parallel_jobs > 0, "max_parallel_jobs must be > 0");
+        if self.max_parallel_jobs == 0 {
+            return Err(RecordError::Other(
+                "max_parallel_jobs must be > 0".to_string(),
+            ));
+        }
 
         let start_time = Instant::now();
         let total = programs.len();
@@ -85,7 +89,7 @@ impl BatchRecorder {
                 .template(
                     "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
                 )
-                .unwrap()
+                .unwrap_or_else(|_| ProgressStyle::default_bar())
                 .progress_chars("#>-"),
         );
 

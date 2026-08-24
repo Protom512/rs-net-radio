@@ -156,9 +156,7 @@ impl HibikiScraper {
     ///
     /// Returns an error if parsing fails.
     fn try_extract_from_script(&self, document: &Html) -> Result<Option<String>, RecordError> {
-        static SCRIPT_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let script_selector = SCRIPT_SELECTOR
-            .get_or_init(|| Selector::parse("script").expect("Failed to parse script selector"));
+        let script_selector = script_selector()?;
 
         for element in document.select(script_selector) {
             let script_content = element.text().collect::<Vec<_>>().join(" ");
@@ -199,7 +197,7 @@ impl HibikiScraper {
                 "[data-url]",
             ]
             .iter()
-            .map(|s| Selector::parse(s).expect("Failed to parse data selector"))
+            .filter_map(|s| Selector::parse(s).ok())
             .collect()
         });
 
@@ -237,9 +235,7 @@ impl HibikiScraper {
     ///
     /// Returns an error if parsing fails.
     fn try_extract_from_iframe(&self, document: &Html) -> Result<Option<String>, RecordError> {
-        static IFRAME_SELECTOR: OnceLock<Selector> = OnceLock::new();
-        let iframe_selector = IFRAME_SELECTOR
-            .get_or_init(|| Selector::parse("iframe").expect("Failed to parse iframe selector"));
+        let iframe_selector = iframe_selector()?;
 
         for element in document.select(iframe_selector) {
             if let Some(src) = element.value().attr("src") {
@@ -264,19 +260,13 @@ impl HibikiScraper {
     /// The URL if found and valid.
     fn extract_url_from_text(&self, text: &str) -> Option<String> {
         // Common patterns for streaming URLs in Hibiki Radio pages
-        static REGEX_PATTERNS: OnceLock<Vec<(Regex, usize)>> = OnceLock::new();
-        let patterns = REGEX_PATTERNS.get_or_init(|| {
-            [
-                (r#"https?://[^"'<>]+\.(?:m3u8|mp4|ts)[^"'<>]*"#, 0), // Direct streaming URLs (full match)
-                (r#""url"\s*:\s*"([^"]+)""#, 1),                      // JSON "url" field
-                (r#""streamingUrl"\s*:\s*"([^"]+)""#, 1),             // JSON "streamingUrl" field
-                (r#""videoUrl"\s*:\s*"([^"]+)""#, 1),                 // JSON "videoUrl" field
-                (r#"(?:src|href)\s*=\s*"([^"]+\.(?:m3u8|mp4|ts)[^"]*)"#, 1), // src/href attributes
-            ]
-            .iter()
-            .map(|(p, g)| (Regex::new(p).expect("Failed to compile regex pattern"), *g))
-            .collect()
-        });
+        let patterns = match url_regex_patterns() {
+            Ok(p) => p,
+            Err(e) => {
+                debug!("URL regex patterns unavailable: {e}");
+                return None;
+            }
+        };
 
         for (re, group) in patterns {
             if let Some(captures) = re.captures(text) {
@@ -351,6 +341,47 @@ impl Default for HibikiScraper {
             log::error!("Failed to create HibikiScraper with default configuration");
             std::process::exit(1);
         })
+    }
+}
+
+
+fn script_selector() -> Result<&'static Selector, RecordError> {
+    static CELL: OnceLock<Result<Selector, String>> = OnceLock::new();
+    match CELL.get_or_init(|| Selector::parse("script").map_err(|e| e.to_string())) {
+        Ok(sel) => Ok(sel),
+        Err(msg) => Err(RecordError::Other(format!("Failed to parse script selector: {msg}"))),
+    }
+}
+
+fn iframe_selector() -> Result<&'static Selector, RecordError> {
+    static CELL: OnceLock<Result<Selector, String>> = OnceLock::new();
+    match CELL.get_or_init(|| Selector::parse("iframe").map_err(|e| e.to_string())) {
+        Ok(sel) => Ok(sel),
+        Err(msg) => Err(RecordError::Other(format!("Failed to parse iframe selector: {msg}"))),
+    }
+}
+
+fn url_regex_patterns() -> Result<&'static Vec<(Regex, usize)>, RecordError> {
+    static CELL: OnceLock<Result<Vec<(Regex, usize)>, String>> = OnceLock::new();
+    match CELL.get_or_init(|| {
+        let specs = [
+            (r#"https?://[^"'<>]+\.(?:m3u8|mp4|ts)[^"'<>]*"#, 0usize),
+            (r#""url"\s*:\s*"([^"]+)""#, 1),
+            (r#""streamingUrl"\s*:\s*"([^"]+)""#, 1),
+            (r#""videoUrl"\s*:\s*"([^"]+)""#, 1),
+            (r#"(?:src|href)\s*=\s*"([^"]+\.(?:m3u8|mp4|ts)[^"]*)"#, 1),
+        ];
+        let mut out = Vec::with_capacity(specs.len());
+        for (pat, group) in specs {
+            match Regex::new(pat) {
+                Ok(re) => out.push((re, group)),
+                Err(e) => return Err(format!("Failed to compile regex pattern {pat:?}: {e}")),
+            }
+        }
+        Ok(out)
+    }) {
+        Ok(v) => Ok(v),
+        Err(msg) => Err(RecordError::Other(msg.clone())),
     }
 }
 

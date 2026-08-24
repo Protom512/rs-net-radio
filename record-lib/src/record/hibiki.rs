@@ -754,7 +754,13 @@ pub async fn record_parallel() {
     let mut tasks = Vec::new();
 
     for program in programs {
-        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let permit = match semaphore.clone().acquire_owned().await {
+            Ok(p) => p,
+            Err(_) => {
+                error!("Semaphore closed while scheduling Hibiki program tasks");
+                break;
+            }
+        };
         let archive_path = archive_base_path.clone();
         let client = client.clone();
 
